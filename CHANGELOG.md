@@ -24,3 +24,10 @@
 - Server-side render of first page for better page caching.
 - Preload Flatpickr assets when enabled.
 - Improved Elementor detection and added REST nonce security.
+
+## 1.4.0
+- Refactored JS into modular class with debounce and spinner.
+- Auto-caching for towns/months with transient invalidation.
+- Added dynamic CPT filtering and label exposure.
+- Enhanced admin settings UI and grouped controls.
+- Prepared plugin for Redis object caching and future metadata extensions.

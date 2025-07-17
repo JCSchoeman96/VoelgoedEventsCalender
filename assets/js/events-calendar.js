@@ -1,160 +1,185 @@
-document.addEventListener('DOMContentLoaded', function () {
-    let currentPage = 1;
-    let totalPages = 1;
+class VGEventsCalendar {
+  constructor(config) {
+    this.config = config;
+    this.currentPage = 1;
+    this.totalPages = 1;
+    this.cacheEls();
+    this.init();
+  }
 
-    const startDate = document.getElementById('start-date');
-    const endDate = document.getElementById('end-date');
-    const searchBar = document.getElementById('search-bar');
-    const monthFilter = document.getElementById('month-filter');
-    const townFilter = document.getElementById('town-filter');
+  cacheEls() {
+    this.startDate = document.getElementById('start-date');
+    this.endDate = document.getElementById('end-date');
+    this.searchBar = document.getElementById('search-bar');
+    this.monthFilter = document.getElementById('month-filter');
+    this.townFilter = document.getElementById('town-filter');
+    this.spinner = document.getElementById('vg-events-spinner');
+  }
 
-    function supportsDateInput() {
-        const input = document.createElement('input');
-        input.setAttribute('type', 'date');
-        const value = 'not-a-date';
-        input.setAttribute('value', value);
-        return input.value !== value;
+  init() {
+    this.initFilters();
+    this.triggerLoad();
+  }
+
+  supportsDateInput() {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'date');
+    const value = 'not-a-date';
+    input.setAttribute('value', value);
+    return input.value !== value;
+  }
+
+  loadFlatpickr() {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = this.config.flatpickr_css;
+    document.head.appendChild(link);
+    const script = document.createElement('script');
+    script.src = this.config.flatpickr_js;
+    script.onload = () => {
+      if (window.flatpickr) {
+        flatpickr(this.startDate, { dateFormat: 'Y-m-d' });
+        flatpickr(this.endDate, { dateFormat: 'Y-m-d' });
+      }
+    };
+    document.head.appendChild(script);
+  }
+
+  initFilters() {
+    if (this.config.useDatepicker) {
+      if (this.supportsDateInput()) {
+        this.startDate.type = 'date';
+        this.endDate.type = 'date';
+      } else {
+        this.loadFlatpickr();
+      }
     }
 
-    if (vgEvents.useDatepicker) {
-        if (supportsDateInput()) {
-            startDate.type = 'date';
-            endDate.type = 'date';
-        } else {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = vgEvents.flatpickr_css;
-            document.head.appendChild(link);
-            const script = document.createElement('script');
-            script.src = vgEvents.flatpickr_js;
-            script.onload = function () {
-                if (window.flatpickr) {
-                    flatpickr(startDate, { dateFormat: 'Y-m-d' });
-                    flatpickr(endDate, { dateFormat: 'Y-m-d' });
-                }
-            };
-            document.head.appendChild(script);
-        }
+    if (Array.isArray(this.config.towns)) {
+      this.config.towns.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        this.townFilter.appendChild(opt);
+      });
     }
 
-    if (vgEvents.towns && vgEvents.towns.length) {
-        vgEvents.towns.forEach(function(t){
-            const opt = document.createElement('option');
-            opt.value = t;
-            opt.textContent = t;
-            townFilter.appendChild(opt);
-        });
-    }
-
-    if (vgEvents.months && vgEvents.months.length) {
-        vgEvents.months.forEach(function(m){
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            monthFilter.appendChild(opt);
-        });
+    if (Array.isArray(this.config.months)) {
+      this.config.months.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        this.monthFilter.appendChild(opt);
+      });
     }
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get('town')) {
-        townFilter.value = params.get('town');
-    }
-    if (params.get('month')) {
-        monthFilter.value = params.get('month');
-    }
-    if (params.get('search')) {
-        searchBar.value = params.get('search');
-    }
-    if (params.get('start')) {
-        startDate.value = params.get('start');
-    }
-    if (params.get('end')) {
-        endDate.value = params.get('end');
-    }
+    if (params.get('town')) this.townFilter.value = params.get('town');
+    if (params.get('month')) this.monthFilter.value = params.get('month');
+    if (params.get('search')) this.searchBar.value = params.get('search');
+    if (params.get('start')) this.startDate.value = params.get('start');
+    if (params.get('end')) this.endDate.value = params.get('end');
 
-    async function loadContent(postType = '', startDateVal = '', endDateVal = '', search = '', month = '', town = '', page = 1) {
-        const container = document.getElementById('elementor-loop-content');
-        container.innerHTML = '<p>Loading...</p>';
-        try {
-            const params = new URLSearchParams({
-                post_types: vgEvents.post_types,
-                selected_post_type: postType,
-                start_date: startDateVal,
-                end_date: endDateVal,
-                search: search,
-                month: month,
-                town: town,
-                template_id: vgEvents.template_id,
-                paged: page,
-                _wpnonce: vgEvents.nonce
-            });
-            const response = await fetch(vgEvents.rest_url + '?' + params.toString());
-            const data = await response.json();
-            container.innerHTML = data.content || '<p>No posts found.</p>';
-            totalPages = data.total_pages || 1;
-            currentPage = data.current_page || 1;
-            updatePaginationControls();
-        } catch (err) {
-            console.error(err);
-            container.innerHTML = '<p>Error loading content. Please try again.</p>';
-        }
-    }
-
-    function updatePaginationControls() {
-        document.getElementById('page-info').textContent = `${currentPage} van ${totalPages}`;
-        document.getElementById('prev-page').disabled = currentPage === 1;
-        document.getElementById('next-page').disabled = currentPage === totalPages;
-    }
-
-    document.getElementById('prev-page').addEventListener('click', function () {
-        if (currentPage > 1) {
-            currentPage--;
-            triggerLoad();
-        }
-    });
-
-    document.getElementById('next-page').addEventListener('click', function () {
-        if (currentPage < totalPages) {
-            currentPage++;
-            triggerLoad();
-        }
-    });
-
-    function triggerLoad() {
-        const active = document.querySelector('#post-type-filters .post-type-filter.active');
-        const postType = active ? active.getAttribute('data-post-type') : '';
-        loadContent(postType, startDate.value, endDate.value, searchBar.value, monthFilter.value, townFilter.value, currentPage);
-    }
-
-    document.querySelectorAll('#post-type-filters .post-type-filter').forEach(function (el) {
-        el.addEventListener('click', function () {
-            document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => i.classList.remove('active'));
-            this.classList.add('active');
-            currentPage = 1;
-            triggerLoad();
-        });
-    });
-
-    [startDate, endDate, searchBar, monthFilter, townFilter].forEach(function (el) {
-        el.addEventListener('change', function () {
-            currentPage = 1;
-            triggerLoad();
-        });
-    });
-
-    document.getElementById('reset-filters').addEventListener('click', function () {
-        searchBar.value = '';
-        townFilter.value = '';
-        monthFilter.value = '';
-        startDate.value = '';
-        endDate.value = '';
+    document.querySelectorAll('#post-type-filters .post-type-filter').forEach(el => {
+      el.addEventListener('click', () => {
         document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => i.classList.remove('active'));
-        currentPage = 1;
-        loadContent();
-        const msg = document.getElementById('filter-reset-msg');
-        msg.style.display = 'block';
-        setTimeout(() => { msg.style.display = 'none'; }, 2500);
+        el.classList.add('active');
+        this.currentPage = 1;
+        this.triggerLoad();
+      });
     });
 
-    triggerLoad();
+    const debounced = this.debounce(() => {
+      this.currentPage = 1;
+      this.triggerLoad();
+    }, 300);
+
+    [this.startDate, this.endDate, this.searchBar, this.monthFilter, this.townFilter].forEach(el => {
+      el.addEventListener('input', debounced);
+      el.addEventListener('change', debounced);
+    });
+
+    document.getElementById('prev-page').addEventListener('click', () => {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+        this.triggerLoad();
+      }
+    });
+
+    document.getElementById('next-page').addEventListener('click', () => {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+        this.triggerLoad();
+      }
+    });
+
+    document.getElementById('reset-filters').addEventListener('click', () => {
+      this.searchBar.value = '';
+      this.townFilter.value = '';
+      this.monthFilter.value = '';
+      this.startDate.value = '';
+      this.endDate.value = '';
+      document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => i.classList.remove('active'));
+      this.currentPage = 1;
+      this.loadResults();
+      const msg = document.getElementById('filter-reset-msg');
+      msg.style.display = 'block';
+      setTimeout(() => { msg.style.display = 'none'; }, 2500);
+    });
+  }
+
+  debounce(func, wait) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
+
+  async loadResults(postType = '', startDate = '', endDate = '', search = '', month = '', town = '') {
+    const container = document.getElementById('elementor-loop-content');
+    if (this.spinner) this.spinner.style.display = 'block';
+    container.innerHTML = '<p>Loading...</p>';
+    try {
+      const params = new URLSearchParams({
+        post_types: this.config.post_types,
+        selected_post_type: postType,
+        start_date: startDate,
+        end_date: endDate,
+        search: search,
+        month: month,
+        town: town,
+        template_id: this.config.template_id,
+        paged: this.currentPage,
+        _wpnonce: this.config.nonce
+      });
+      const response = await fetch(this.config.rest_url + '?' + params.toString());
+      const data = await response.json();
+      container.innerHTML = data.content || '<p>No posts found.</p>';
+      this.totalPages = data.total_pages || 1;
+      this.currentPage = data.current_page || 1;
+      this.updatePagination();
+    } catch (err) {
+      console.error(err);
+      container.innerHTML = '<p>Error loading content. Please try again.</p>';
+    } finally {
+      if (this.spinner) this.spinner.style.display = 'none';
+    }
+  }
+
+  updatePagination() {
+    document.getElementById('page-info').textContent = `${this.currentPage} van ${this.totalPages}`;
+    document.getElementById('prev-page').disabled = this.currentPage === 1;
+    document.getElementById('next-page').disabled = this.currentPage === this.totalPages;
+  }
+
+  triggerLoad() {
+    const active = document.querySelector('#post-type-filters .post-type-filter.active');
+    const pt = active ? active.getAttribute('data-post-type') : '';
+    this.loadResults(pt, this.startDate.value, this.endDate.value, this.searchBar.value, this.monthFilter.value, this.townFilter.value);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  new VGEventsCalendar(window.vgEvents || {});
 });

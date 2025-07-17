@@ -11,23 +11,30 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @return array
  */
-function voelgoed_events_get_towns() {
-    $cached = wp_cache_get( 'vg_towns', 'vg_events' );
-    if ( false !== $cached ) {
-        return $cached;
+function vg_events_get_towns() {
+    $override = function_exists( 'get_field' ) ? get_field( 'override_town_list', 'option' ) : [];
+    if ( ! empty( $override ) ) {
+        return (array) $override;
     }
 
-    global $wpdb;
-    $results = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='dorpstad' AND meta_value<>'' ORDER BY meta_value ASC" );
-    $towns = array_values( array_filter( $results ) );
-    wp_cache_set( 'vg_towns', $towns, 'vg_events', HOUR_IN_SECONDS );
+    $cached = get_transient( 'vg_events_cached_towns' );
+    if ( false === $cached ) {
+        $cached = wp_cache_get( 'vg_events_cached_towns' );
+    }
+    if ( false === $cached ) {
+        global $wpdb;
+        $results = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='dorpstad' AND meta_value<>'' ORDER BY meta_value ASC" );
+        $cached  = array_values( array_filter( $results ) );
+        set_transient( 'vg_events_cached_towns', $cached, 12 * HOUR_IN_SECONDS );
+        wp_cache_set( 'vg_events_cached_towns', $cached, '', 12 * HOUR_IN_SECONDS );
+    }
 
     /**
-     * Filter the list of towns.
+     * Filter the list of towns for the sidebar dropdown.
      *
-     * @param array $towns Array of town names.
+     * @param array $cached Array of town names.
      */
-    return apply_filters( 'voelgoed_events_towns', $towns );
+    return apply_filters( 'vg_events_sidebar_town_list', $cached );
 }
 
 /**
@@ -35,27 +42,82 @@ function voelgoed_events_get_towns() {
  *
  * @return array
  */
-function voelgoed_events_get_months() {
-    $cached = wp_cache_get( 'vg_months', 'vg_events' );
-    if ( false !== $cached ) {
-        return $cached;
+function vg_events_get_months() {
+    $cached = get_transient( 'vg_events_cached_months' );
+    if ( false === $cached ) {
+        $cached = wp_cache_get( 'vg_events_cached_months' );
     }
-
-    global $wpdb;
-    $dates = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='datum' AND meta_value<>''" );
-    $months = [];
-    foreach ( $dates as $d ) {
-        $m = date( 'm', strtotime( $d ) );
-        $months[ $m ] = $m;
+    if ( false === $cached ) {
+        global $wpdb;
+        $dates  = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='datum' AND meta_value<>''" );
+        $months = [];
+        foreach ( $dates as $d ) {
+            $m            = date( 'm', strtotime( $d ) );
+            $months[ $m ] = $m;
+        }
+        ksort( $months );
+        $cached = array_keys( $months );
+        set_transient( 'vg_events_cached_months', $cached, 12 * HOUR_IN_SECONDS );
+        wp_cache_set( 'vg_events_cached_months', $cached, '', 12 * HOUR_IN_SECONDS );
     }
-    ksort( $months );
-    $months = array_keys( $months );
-    wp_cache_set( 'vg_months', $months, 'vg_events', HOUR_IN_SECONDS );
 
     /**
-     * Filter the list of months.
+     * Filter the list of months for the sidebar dropdown.
      *
-     * @param array $months Array of month numbers.
+     * @param array $cached Array of month numbers.
      */
-    return apply_filters( 'voelgoed_events_months', $months );
+    return apply_filters( 'vg_events_sidebar_month_list', $cached );
 }
+
+/**
+ * Get supported post types from plugin settings.
+ *
+ * @return array
+ */
+function vg_events_get_supported_post_types() {
+    $defaults = [
+        'funksie',
+        'eksterne-funksie',
+        'feeste-markte',
+        'uitdaging',
+        'webinar',
+        'reisklub-toer',
+        'sport-gholfdae',
+        'lootjies-kompetisies',
+    ];
+
+    $saved = get_option( 'vg_events_post_types', $defaults );
+    return apply_filters( 'vg_events_supported_post_types', (array) $saved );
+}
+
+/**
+ * Retrieve associative array of post type slugs to labels.
+ *
+ * @return array
+ */
+function vg_events_get_post_type_labels() {
+    $labels = [];
+    foreach ( vg_events_get_supported_post_types() as $pt ) {
+        $obj = get_post_type_object( $pt );
+        if ( $obj && ! empty( $obj->labels->singular_name ) ) {
+            $labels[ $pt ] = $obj->labels->singular_name;
+        } else {
+            $labels[ $pt ] = ucfirst( str_replace( '-', ' ', $pt ) );
+        }
+    }
+
+    return apply_filters( 'vg_events_post_type_labels', $labels );
+}
+
+/**
+ * Clear cached town and month lists when supported posts are saved.
+ */
+function vg_events_clear_cache_on_save( $post_id, $post ) {
+    if ( ! $post || ! in_array( $post->post_type, vg_events_get_supported_post_types(), true ) ) {
+        return;
+    }
+    delete_transient( 'vg_events_cached_towns' );
+    delete_transient( 'vg_events_cached_months' );
+}
+
+add_action( 'save_post', 'vg_events_clear_cache_on_save', 10, 2 );
