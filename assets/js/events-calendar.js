@@ -8,23 +8,52 @@ document.addEventListener('DOMContentLoaded', function () {
     const monthFilter = document.getElementById('month-filter');
     const townFilter = document.getElementById('town-filter');
 
-    if (window.jQuery) {
-        jQuery(startDate).add(endDate).datepicker({
-            dateFormat: 'yy-mm-dd',
-            changeMonth: true,
-            changeYear: true,
-            showButtonPanel: true
+    if (vgEvents.useDatepicker && window.flatpickr) {
+        flatpickr(startDate, {dateFormat: 'Y-m-d'});
+        flatpickr(endDate, {dateFormat: 'Y-m-d'});
+    }
+
+    if (vgEvents.towns && vgEvents.towns.length) {
+        vgEvents.towns.forEach(function(t){
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            townFilter.appendChild(opt);
         });
+    }
+
+    if (vgEvents.months && vgEvents.months.length) {
+        vgEvents.months.forEach(function(m){
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            monthFilter.appendChild(opt);
+        });
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('town')) {
+        townFilter.value = params.get('town');
+    }
+    if (params.get('month')) {
+        monthFilter.value = params.get('month');
+    }
+    if (params.get('search')) {
+        searchBar.value = params.get('search');
+    }
+    if (params.get('start')) {
+        startDate.value = params.get('start');
+    }
+    if (params.get('end')) {
+        endDate.value = params.get('end');
     }
 
     async function loadContent(postType = '', startDateVal = '', endDateVal = '', search = '', month = '', town = '', page = 1) {
         const container = document.getElementById('elementor-loop-content');
         container.innerHTML = '<p>Loading...</p>';
         try {
-            const body = new URLSearchParams({
-                action: 'load_elementor_loop_content',
-                nonce: vgEvents.nonce,
-                post_types: JSON.stringify(vgEvents.post_types),
+            const params = new URLSearchParams({
+                post_types: vgEvents.post_types,
                 selected_post_type: postType,
                 start_date: startDateVal,
                 end_date: endDateVal,
@@ -34,20 +63,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 template_id: vgEvents.template_id,
                 paged: page
             });
-            const response = await fetch(vgEvents.ajax_url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-                body: body.toString()
-            });
+            const response = await fetch(vgEvents.rest_url + '?' + params.toString());
             const data = await response.json();
-            if (data.success) {
-                container.innerHTML = data.data.content;
-                totalPages = data.data.total_pages;
-                currentPage = data.data.current_page;
-                updatePaginationControls();
-            } else {
-                container.innerHTML = '<p>No posts found.</p>';
-            }
+            container.innerHTML = data.content || '<p>No posts found.</p>';
+            totalPages = data.total_pages || 1;
+            currentPage = data.current_page || 1;
+            updatePaginationControls();
         } catch (err) {
             console.error(err);
             container.innerHTML = '<p>Error loading content. Please try again.</p>';
@@ -110,5 +131,5 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(() => { msg.style.display = 'none'; }, 2500);
     });
 
-    loadContent();
+    triggerLoad();
 });
