@@ -5,11 +5,11 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.4.1';
+    private $version = '1.5.0';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
-    private $option_debug = 'vg_events_debug_mode';
+    private $option_debug = 'vg_events_debug';
     private $default_post_types = [
         'funksie',
         'eksterne-funksie',
@@ -66,6 +66,9 @@ class Voelgoed_Events_Calendar {
     public function enqueue_assets() {
         $enable_datepicker = get_option( $this->option_datepicker, 1 );
         wp_enqueue_style( 'vg-events-calendar', plugins_url( '../assets/css/events-calendar.css', __FILE__ ), [], $this->version );
+        if ( did_action( 'elementor/loaded' ) ) {
+            Elementor\Plugin::instance()->frontend->enqueue_styles();
+        }
         wp_register_script(
             'vg-events-calendar',
             plugins_url( '../assets/js/events-calendar.js', __FILE__ ),
@@ -214,12 +217,48 @@ class Voelgoed_Events_Calendar {
         $start = ($paged - 1) * $posts_per_page;
         $current_page_posts = array_slice($sorted_posts, $start, $posts_per_page);
 
+        if ( ! did_action( 'elementor/loaded' ) ) {
+            error_log( '[VG Events] Elementor not loaded when rendering events.' );
+        }
+
+        $template_errors = [];
+        $debug_items     = [];
+
         ob_start();
         if (!empty($current_page_posts)) {
             global $post;
             foreach ($current_page_posts as $post) {
                 setup_postdata($post);
-                echo Elementor\Plugin::instance()->frontend->get_builder_content_for_display($template_id);
+                $html = did_action( 'elementor/loaded' ) ? Elementor\Plugin::instance()->frontend->get_builder_content_for_display($template_id) : '';
+                $rendered = ! empty( trim( $html ) );
+                if ( ! $rendered ) {
+                    $template_errors[] = $post->ID;
+                    error_log('[VG Events] Template render issue for post ID: ' . $post->ID);
+                    $html = '<div class="vg-fallback-loop-item"><h3>' . get_the_title() . '</h3><p>' . esc_html( get_post_meta(get_the_ID(), 'datum', true) ) . '</p><p>' . esc_html( wp_trim_words(get_the_excerpt(), 20) ) . '</p></div>';
+                }
+
+                echo '<div class="vg-loop-item">';
+                if ( $this->debug ) {
+                    echo '<div class="vg-debug-label">[DEBUG]</div>';
+                    echo '<div class="vg-debug">';
+                    echo 'Post ID: ' . $post->ID . '<br />';
+                    echo 'Post Type: ' . esc_html( $post->post_type ) . '<br />';
+                    echo 'Datum: ' . esc_html( get_post_meta( $post->ID, 'datum', true ) ) . '<br />';
+                    echo '</div>';
+                    echo '<pre class="vg-template-html">' . esc_html( $html ) . '</pre>';
+                }
+                echo $html;
+                if ( $this->debug ) {
+                    echo '<style>.vg-loop-item{border:1px solid #ddd;padding:10px;margin-bottom:15px;background:#fff;} .vg-debug-label{color:red;font-weight:bold;margin-bottom:5px;} .vg-template-html{background:#f9f9f9;padding:10px;border:1px solid #ccc;white-space:pre-wrap;} .vg-fallback-loop-item{background:#f9f9f9;padding:10px;}</style>';
+                }
+                echo '</div>';
+
+                if ( $this->debug ) {
+                    $debug_items[] = [
+                        'post_id'           => $post->ID,
+                        'template_rendered' => $rendered,
+                    ];
+                }
             }
             wp_reset_postdata();
         } else {
@@ -235,7 +274,10 @@ class Voelgoed_Events_Calendar {
         if ( $this->debug ) {
             $response['debug'] = [
                 'args'        => $args,
+                'params'      => $params,
                 'total_posts' => $total_posts,
+                'template_errors' => $template_errors,
+                'items'       => $debug_items,
             ];
         }
         return $response;

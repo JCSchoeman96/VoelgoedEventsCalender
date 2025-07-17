@@ -160,7 +160,10 @@ class VGEventsCalendar {
       this.currentPage = data.current_page || 1;
       this.updatePagination();
       if (this.config.debug && data.debug) {
-        console.log('VG Events Debug:', data.debug);
+        console.log('[VG Events Plugin] Debug info:', data.debug);
+        if (Array.isArray(data.debug.template_errors) && data.debug.template_errors.length) {
+          console.warn('[VG Events Plugin] Template rendering issues for posts:', data.debug.template_errors);
+        }
         const dbg = document.getElementById('vg-events-debug');
         if (dbg) {
           dbg.style.display = 'block';
