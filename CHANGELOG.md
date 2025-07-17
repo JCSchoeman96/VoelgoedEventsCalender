@@ -16,3 +16,11 @@
 - Added helper functions with filters for towns and months.
 - Dynamic Flatpickr loading with native date input fallback.
 - Settings page now includes post type selection and datepicker toggle.
+
+## 1.3.0
+- Switched to wp_cache_* for Redis-compatible caching.
+- REST responses cached with object cache and cache_bust support.
+- Added cache clearing on event save.
+- Server-side render of first page for better page caching.
+- Preload Flatpickr assets when enabled.
+- Improved Elementor detection and added REST nonce security.

@@ -12,9 +12,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @return array
  */
 function voelgoed_events_get_towns() {
+    $cached = wp_cache_get( 'vg_towns', 'vg_events' );
+    if ( false !== $cached ) {
+        return $cached;
+    }
+
     global $wpdb;
     $results = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='dorpstad' AND meta_value<>'' ORDER BY meta_value ASC" );
     $towns = array_values( array_filter( $results ) );
+    wp_cache_set( 'vg_towns', $towns, 'vg_events', HOUR_IN_SECONDS );
+
     /**
      * Filter the list of towns.
      *
@@ -29,6 +36,11 @@ function voelgoed_events_get_towns() {
  * @return array
  */
 function voelgoed_events_get_months() {
+    $cached = wp_cache_get( 'vg_months', 'vg_events' );
+    if ( false !== $cached ) {
+        return $cached;
+    }
+
     global $wpdb;
     $dates = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='datum' AND meta_value<>''" );
     $months = [];
@@ -38,6 +50,8 @@ function voelgoed_events_get_months() {
     }
     ksort( $months );
     $months = array_keys( $months );
+    wp_cache_set( 'vg_months', $months, 'vg_events', HOUR_IN_SECONDS );
+
     /**
      * Filter the list of months.
      *

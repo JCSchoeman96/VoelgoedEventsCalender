@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.2.0';
+    private $version = '1.3.0';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
@@ -36,6 +36,8 @@ class Voelgoed_Events_Calendar {
         add_action('rest_api_init', [$this, 'register_rest_routes']);
         add_action('admin_menu', [$this, 'admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
+        add_action('save_post', [$this, 'clear_cache'], 10, 3);
+        add_action('wp_head', [$this, 'preload_flatpickr_assets']);
         register_block_type(__DIR__ . '/../assets/js/blocks.js', [
             'render_callback' => [$this, 'shortcode'],
         ]);
@@ -46,6 +48,15 @@ class Voelgoed_Events_Calendar {
             global $post;
             if (has_shortcode($post->post_content, 'custom_loop_code_sidebar') || has_block('vg-events/calendar', $post)) {
                 $this->enqueue_assets();
+                return;
+            }
+            if (function_exists('elementor_theme_do_location') && elementor_theme_do_location('single')) {
+                ob_start();
+                the_content();
+                $content = ob_get_clean();
+                if (has_shortcode($content, 'custom_loop_code_sidebar')) {
+                    $this->enqueue_assets();
+                }
             }
         }
     }
@@ -69,6 +80,7 @@ class Voelgoed_Events_Calendar {
             'flatpickr_css' => 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
             'towns' => $this->get_towns(),
             'months' => $this->get_months(),
+            'nonce'  => wp_create_nonce('wp_rest'),
         ];
         wp_add_inline_script('vg-events-calendar', 'var vgEvents = ' . wp_json_encode($data) . ';', 'before');
         wp_enqueue_script('vg-events-calendar');
@@ -82,6 +94,20 @@ class Voelgoed_Events_Calendar {
 
     public function rest_load(WP_REST_Request $request) {
         $params = $request->get_params();
+        $cache_key = 'vg_events_' . md5( serialize( $params ) );
+        if ( ! $request->get_param( 'cache_bust' ) ) {
+            $cached = wp_cache_get( $cache_key, 'vg_events' );
+            if ( $cached ) {
+                return rest_ensure_response( $cached );
+            }
+        }
+
+        $response = $this->get_events_response( $params );
+        wp_cache_set( $cache_key, $response, 'vg_events', 300 );
+        return rest_ensure_response( $response );
+    }
+
+    private function get_events_response( $params ) {
         $post_types         = isset($params['post_types']) ? (array) $params['post_types'] : $this->post_types;
         $selected_post_type = isset($params['selected_post_type']) ? sanitize_text_field($params['selected_post_type']) : '';
         $start_date         = isset($params['start_date']) ? sanitize_text_field($params['start_date']) : '';
@@ -92,12 +118,6 @@ class Voelgoed_Events_Calendar {
         $template_id        = isset($params['template_id']) ? intval($params['template_id']) : 0;
         $paged              = isset($params['paged']) ? intval($params['paged']) : 1;
         $posts_per_page     = 5;
-
-        $cache_key = 'vg_events_' . md5(serialize($params));
-        $cached = get_transient($cache_key);
-        if ($cached) {
-            return rest_ensure_response($cached);
-        }
 
         $today = date('Ymd');
         $args = [
@@ -203,15 +223,14 @@ class Voelgoed_Events_Calendar {
             'total_pages'  => $total_pages,
             'current_page' => $paged,
         ];
-        set_transient($cache_key, $response, 5 * MINUTE_IN_SECONDS);
-        return rest_ensure_response($response);
+        return $response;
     }
 
     public function register_rest_routes() {
         register_rest_route('vg-events/v1', '/events', [
             'methods'  => 'GET',
             'callback' => [$this, 'rest_load'],
-            'permission_callback' => '__return_true',
+            'permission_callback' => [$this, 'rest_permission_check'],
         ]);
     }
 
@@ -268,6 +287,30 @@ class Voelgoed_Events_Calendar {
 
     private function get_months() {
         return voelgoed_events_get_months();
+    }
+
+    public function render_events( $params = [] ) {
+        $data = $this->get_events_response( $params );
+        return $data['content'];
+    }
+
+    public function clear_cache( $post_id, $post, $update ) {
+        if ( ! $post || ! in_array( $post->post_type, $this->post_types, true ) ) {
+            return;
+        }
+        wp_cache_delete( 'vg_towns', 'vg_events' );
+        wp_cache_delete( 'vg_months', 'vg_events' );
+    }
+
+    public function preload_flatpickr_assets() {
+        if ( get_option( $this->option_datepicker, 1 ) ) {
+            echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr" as="script">\n';
+            echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" as="style">\n';
+        }
+    }
+
+    public function rest_permission_check() {
+        return current_user_can( 'read' ) || is_user_logged_in() || check_ajax_referer( 'wp_rest', '_wpnonce', false );
     }
 
     private function sort_posts_by_datum($posts) {
