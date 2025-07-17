@@ -31,3 +31,7 @@
 - Added dynamic CPT filtering and label exposure.
 - Enhanced admin settings UI and grouped controls.
 - Prepared plugin for Redis object caching and future metadata extensions.
+
+## 1.4.1
+- Fixed initial event sorting and future-date filtering.
+- Improved Elementor loop rendering and added optional debug mode.

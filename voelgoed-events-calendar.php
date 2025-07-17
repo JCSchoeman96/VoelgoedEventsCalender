@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Voelgoed Events Calendar
  * Description: Display events with filters using Elementor.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: Example
  */
 

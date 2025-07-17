@@ -5,10 +5,11 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.4.0';
+    private $version = '1.4.1';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
+    private $option_debug = 'vg_events_debug_mode';
     private $default_post_types = [
         'funksie',
         'eksterne-funksie',
@@ -20,6 +21,7 @@ class Voelgoed_Events_Calendar {
         'lootjies-kompetisies'
     ];
     private $post_types = [];
+    private $debug = false;
 
     public static function instance() {
         if (self::$instance === null) {
@@ -30,6 +32,7 @@ class Voelgoed_Events_Calendar {
 
     private function __construct() {
         $this->post_types = get_option( $this->option_post_types, $this->default_post_types );
+        $this->debug      = (bool) get_option( $this->option_debug, 0 );
 
         add_action('wp_enqueue_scripts', [$this, 'maybe_enqueue_assets']);
         add_shortcode('custom_loop_code_sidebar', [$this, 'shortcode']);
@@ -81,6 +84,7 @@ class Voelgoed_Events_Calendar {
             'towns' => $this->get_towns(),
             'months' => $this->get_months(),
             'nonce'  => wp_create_nonce('wp_rest'),
+            'debug'  => $this->debug,
         ];
         wp_add_inline_script('vg-events-calendar', 'var vgEvents = ' . wp_json_encode($data) . ';', 'before');
         wp_enqueue_script('vg-events-calendar');
@@ -228,6 +232,12 @@ class Voelgoed_Events_Calendar {
             'total_pages'  => $total_pages,
             'current_page' => $paged,
         ];
+        if ( $this->debug ) {
+            $response['debug'] = [
+                'args'        => $args,
+                'total_posts' => $total_posts,
+            ];
+        }
         return $response;
     }
 
@@ -251,6 +261,7 @@ class Voelgoed_Events_Calendar {
             'sanitize_callback' => function( $value ) { return array_map( 'sanitize_text_field', (array) $value ); },
             'default'           => $this->default_post_types,
         ] );
+        register_setting( 'vg_events', $this->option_debug, [ 'type' => 'boolean', 'default' => 0 ] );
     }
 
     public function settings_page() {
@@ -274,6 +285,13 @@ class Voelgoed_Events_Calendar {
                         <td>
                             <input name="<?php echo esc_attr($this->option_datepicker); ?>" type="checkbox" value="1" <?php checked(get_option($this->option_datepicker, 1), 1); ?>>
                             <p class="description">Load JS datepicker when browsers lack native support.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Enable Debug Mode</th>
+                        <td>
+                            <input name="<?php echo esc_attr($this->option_debug); ?>" type="checkbox" value="1" <?php checked(get_option($this->option_debug, 0), 1); ?>>
+                            <p class="description">Output query parameters and counts for troubleshooting.</p>
                         </td>
                     </tr>
                 </table>
@@ -341,14 +359,18 @@ class Voelgoed_Events_Calendar {
         usort($posts, function ($a, $b) {
             $da = $this->get_clean_datum($a->ID);
             $db = $this->get_clean_datum($b->ID);
-            return intval($da) - intval($db);
+            return $da <=> $db;
         });
         return $posts;
     }
 
     private function get_clean_datum($post_id) {
         $datum = get_post_meta($post_id, 'datum', true);
-        return is_array($datum) ? $datum[0] : $datum;
+        if ( is_array( $datum ) ) {
+            $datum = reset( $datum );
+        }
+        $datum = preg_replace( '/[^0-9]/', '', (string) $datum );
+        return (int) $datum;
     }
 }
 
