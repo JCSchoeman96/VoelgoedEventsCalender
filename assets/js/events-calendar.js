@@ -8,9 +8,33 @@ document.addEventListener('DOMContentLoaded', function () {
     const monthFilter = document.getElementById('month-filter');
     const townFilter = document.getElementById('town-filter');
 
-    if (vgEvents.useDatepicker && window.flatpickr) {
-        flatpickr(startDate, {dateFormat: 'Y-m-d'});
-        flatpickr(endDate, {dateFormat: 'Y-m-d'});
+    function supportsDateInput() {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'date');
+        const value = 'not-a-date';
+        input.setAttribute('value', value);
+        return input.value !== value;
+    }
+
+    if (vgEvents.useDatepicker) {
+        if (supportsDateInput()) {
+            startDate.type = 'date';
+            endDate.type = 'date';
+        } else {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = vgEvents.flatpickr_css;
+            document.head.appendChild(link);
+            const script = document.createElement('script');
+            script.src = vgEvents.flatpickr_js;
+            script.onload = function () {
+                if (window.flatpickr) {
+                    flatpickr(startDate, { dateFormat: 'Y-m-d' });
+                    flatpickr(endDate, { dateFormat: 'Y-m-d' });
+                }
+            };
+            document.head.appendChild(script);
+        }
     }
 
     if (vgEvents.towns && vgEvents.towns.length) {

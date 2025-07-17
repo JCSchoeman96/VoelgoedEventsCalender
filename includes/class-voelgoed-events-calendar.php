@@ -5,10 +5,11 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.1.0';
+    private $version = '1.2.0';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
-    private $post_types = [
+    private $option_post_types = 'vg_events_post_types';
+    private $default_post_types = [
         'funksie',
         'eksterne-funksie',
         'feeste-markte',
@@ -18,6 +19,7 @@ class Voelgoed_Events_Calendar {
         'sport-gholfdae',
         'lootjies-kompetisies'
     ];
+    private $post_types = [];
 
     public static function instance() {
         if (self::$instance === null) {
@@ -27,6 +29,8 @@ class Voelgoed_Events_Calendar {
     }
 
     private function __construct() {
+        $this->post_types = get_option( $this->option_post_types, $this->default_post_types );
+
         add_action('wp_enqueue_scripts', [$this, 'maybe_enqueue_assets']);
         add_shortcode('custom_loop_code_sidebar', [$this, 'shortcode']);
         add_action('rest_api_init', [$this, 'register_rest_routes']);
@@ -47,16 +51,12 @@ class Voelgoed_Events_Calendar {
     }
 
     public function enqueue_assets() {
-        $enable_datepicker = get_option($this->option_datepicker, 1);
-        wp_enqueue_style('vg-events-calendar', plugins_url('../assets/css/events-calendar.css', __FILE__), [], $this->version);
-        if ($enable_datepicker) {
-            wp_enqueue_style('flatpickr', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
-            wp_enqueue_script('flatpickr', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
-        }
+        $enable_datepicker = get_option( $this->option_datepicker, 1 );
+        wp_enqueue_style( 'vg-events-calendar', plugins_url( '../assets/css/events-calendar.css', __FILE__ ), [], $this->version );
         wp_register_script(
             'vg-events-calendar',
-            plugins_url('../assets/js/events-calendar.js', __FILE__),
-            ['flatpickr'],
+            plugins_url( '../assets/js/events-calendar.js', __FILE__ ),
+            [],
             $this->version,
             true
         );
@@ -65,6 +65,8 @@ class Voelgoed_Events_Calendar {
             'post_types' => $this->post_types,
             'template_id'=> intval(get_option($this->option_template, 38859)),
             'useDatepicker' => (bool) $enable_datepicker,
+            'flatpickr_js' => 'https://cdn.jsdelivr.net/npm/flatpickr',
+            'flatpickr_css' => 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
             'towns' => $this->get_towns(),
             'months' => $this->get_months(),
         ];
@@ -218,8 +220,13 @@ class Voelgoed_Events_Calendar {
     }
 
     public function register_settings() {
-        register_setting('vg_events', $this->option_template, ['type' => 'integer', 'default' => 38859]);
-        register_setting('vg_events', $this->option_datepicker, ['type' => 'boolean', 'default' => 1]);
+        register_setting( 'vg_events', $this->option_template, [ 'type' => 'integer', 'default' => 38859 ] );
+        register_setting( 'vg_events', $this->option_datepicker, [ 'type' => 'boolean', 'default' => 1 ] );
+        register_setting( 'vg_events', $this->option_post_types, [
+            'type'              => 'array',
+            'sanitize_callback' => function( $value ) { return array_map( 'sanitize_text_field', (array) $value ); },
+            'default'           => $this->default_post_types,
+        ] );
     }
 
     public function settings_page() {
@@ -234,7 +241,18 @@ class Voelgoed_Events_Calendar {
                         <td><input name="<?php echo esc_attr($this->option_template); ?>" type="number" value="<?php echo esc_attr(get_option($this->option_template, 38859)); ?>" class="regular-text"></td>
                     </tr>
                     <tr>
-                        <th scope="row">Enable Datepicker</th>
+                        <th scope="row">Enabled Post Types</th>
+                        <td>
+                            <?php $saved = (array) get_option( $this->option_post_types, $this->default_post_types ); ?>
+                            <?php foreach ( $this->default_post_types as $pt ) : ?>
+                                <label>
+                                    <input type="checkbox" name="<?php echo esc_attr( $this->option_post_types ); ?>[]" value="<?php echo esc_attr( $pt ); ?>" <?php checked( in_array( $pt, $saved, true ) ); ?> /> <?php echo esc_html( $pt ); ?>
+                                </label><br />
+                            <?php endforeach; ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Enable JS Datepicker Fallback</th>
                         <td><input name="<?php echo esc_attr($this->option_datepicker); ?>" type="checkbox" value="1" <?php checked(get_option($this->option_datepicker, 1), 1); ?>></td>
                     </tr>
                 </table>
@@ -245,21 +263,11 @@ class Voelgoed_Events_Calendar {
     }
 
     private function get_towns() {
-        global $wpdb;
-        $results = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='dorpstad' AND meta_value<>'' ORDER BY meta_value ASC");
-        return array_values(array_filter($results));
+        return voelgoed_events_get_towns();
     }
 
     private function get_months() {
-        global $wpdb;
-        $dates = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='datum' AND meta_value<>''");
-        $months = [];
-        foreach ($dates as $d) {
-            $m = date('m', strtotime($d));
-            $months[$m] = $m;
-        }
-        ksort($months);
-        return array_keys($months);
+        return voelgoed_events_get_months();
     }
 
     private function sort_posts_by_datum($posts) {
