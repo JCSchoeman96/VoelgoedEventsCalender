@@ -29,22 +29,10 @@ $post_types = isset($this) ? $this->post_types : [];
             <h5><br><br>DORP</h5>
             <select id="town-filter">
                 <option value="">Dorp</option>
-                <?php
-                $towns = array('Bloemfontein','Centurion','Kaapstad','Kemptonpark','Klerksdorp','Krugersdorp','Pretoria','Vanderbijlpark','Vereeniging');
-                foreach ($towns as $town) {
-                    echo '<option value="' . esc_attr($town) . '">' . esc_html($town) . '</option>';
-                }
-                ?>
             </select>
             <h5><br><br>MAAND</h5>
             <select id="month-filter">
                 <option value="">Maand</option>
-                <?php
-                $months = array('01'=>'Januarie','02'=>'Februarie','03'=>'Maart','04'=>'April','05'=>'Mei','06'=>'Junie','07'=>'Julie','08'=>'Augustus','09'=>'September','10'=>'Oktober','11'=>'November','12'=>'Desember');
-                foreach ($months as $key=>$month) {
-                    echo '<option value="' . esc_attr($key) . '">' . esc_html($month) . '</option>';
-                }
-                ?>
             </select>
             <h5><br><br>TYDPERK</h5>
             <input type="text" id="start-date" placeholder="Begindatum">

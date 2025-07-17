@@ -5,7 +5,9 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.0.0';
+    private $version = '1.1.0';
+    private $option_template = 'vg_events_template_id';
+    private $option_datepicker = 'vg_events_datepicker';
     private $post_types = [
         'funksie',
         'eksterne-funksie',
@@ -25,28 +27,46 @@ class Voelgoed_Events_Calendar {
     }
 
     private function __construct() {
-        add_action('wp_enqueue_scripts', [$this, 'enqueue_assets']);
+        add_action('wp_enqueue_scripts', [$this, 'maybe_enqueue_assets']);
         add_shortcode('custom_loop_code_sidebar', [$this, 'shortcode']);
-        add_action('wp_ajax_load_elementor_loop_content', [$this, 'ajax_load']);
-        add_action('wp_ajax_nopriv_load_elementor_loop_content', [$this, 'ajax_load']);
+        add_action('rest_api_init', [$this, 'register_rest_routes']);
+        add_action('admin_menu', [$this, 'admin_menu']);
+        add_action('admin_init', [$this, 'register_settings']);
+        register_block_type(__DIR__ . '/../assets/js/blocks.js', [
+            'render_callback' => [$this, 'shortcode'],
+        ]);
+    }
+
+    public function maybe_enqueue_assets() {
+        if (is_singular()) {
+            global $post;
+            if (has_shortcode($post->post_content, 'custom_loop_code_sidebar') || has_block('vg-events/calendar', $post)) {
+                $this->enqueue_assets();
+            }
+        }
     }
 
     public function enqueue_assets() {
-        wp_enqueue_style('jquery-ui-css', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
+        $enable_datepicker = get_option($this->option_datepicker, 1);
         wp_enqueue_style('vg-events-calendar', plugins_url('../assets/css/events-calendar.css', __FILE__), [], $this->version);
-        wp_enqueue_script('jquery-ui-datepicker');
+        if ($enable_datepicker) {
+            wp_enqueue_style('flatpickr', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css');
+            wp_enqueue_script('flatpickr', 'https://cdn.jsdelivr.net/npm/flatpickr', [], null, true);
+        }
         wp_register_script(
             'vg-events-calendar',
             plugins_url('../assets/js/events-calendar.js', __FILE__),
-            ['jquery', 'jquery-ui-datepicker'],
+            ['flatpickr'],
             $this->version,
             true
         );
         $data = [
-            'ajax_url'   => admin_url('admin-ajax.php'),
-            'nonce'      => wp_create_nonce('vg_events'),
+            'rest_url'   => esc_url_raw(rest_url('vg-events/v1/events')),
             'post_types' => $this->post_types,
-            'template_id'=> 38859,
+            'template_id'=> intval(get_option($this->option_template, 38859)),
+            'useDatepicker' => (bool) $enable_datepicker,
+            'towns' => $this->get_towns(),
+            'months' => $this->get_months(),
         ];
         wp_add_inline_script('vg-events-calendar', 'var vgEvents = ' . wp_json_encode($data) . ';', 'before');
         wp_enqueue_script('vg-events-calendar');
@@ -58,19 +78,24 @@ class Voelgoed_Events_Calendar {
         return ob_get_clean();
     }
 
-    public function ajax_load() {
-        check_ajax_referer('vg_events', 'nonce');
-
-        $post_types         = isset($_POST['post_types']) ? (array) json_decode(stripslashes($_POST['post_types']), true) : $this->post_types;
-        $selected_post_type = isset($_POST['selected_post_type']) ? sanitize_text_field($_POST['selected_post_type']) : '';
-        $start_date         = isset($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : '';
-        $end_date           = isset($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : '';
-        $search             = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
-        $month              = isset($_POST['month']) ? sanitize_text_field($_POST['month']) : '';
-        $town               = isset($_POST['town']) ? sanitize_text_field($_POST['town']) : '';
-        $template_id        = isset($_POST['template_id']) ? intval($_POST['template_id']) : 0;
-        $paged              = isset($_POST['paged']) ? intval($_POST['paged']) : 1;
+    public function rest_load(WP_REST_Request $request) {
+        $params = $request->get_params();
+        $post_types         = isset($params['post_types']) ? (array) $params['post_types'] : $this->post_types;
+        $selected_post_type = isset($params['selected_post_type']) ? sanitize_text_field($params['selected_post_type']) : '';
+        $start_date         = isset($params['start_date']) ? sanitize_text_field($params['start_date']) : '';
+        $end_date           = isset($params['end_date']) ? sanitize_text_field($params['end_date']) : '';
+        $search             = isset($params['search']) ? sanitize_text_field($params['search']) : '';
+        $month              = isset($params['month']) ? sanitize_text_field($params['month']) : '';
+        $town               = isset($params['town']) ? sanitize_text_field($params['town']) : '';
+        $template_id        = isset($params['template_id']) ? intval($params['template_id']) : 0;
+        $paged              = isset($params['paged']) ? intval($params['paged']) : 1;
         $posts_per_page     = 5;
+
+        $cache_key = 'vg_events_' . md5(serialize($params));
+        $cached = get_transient($cache_key);
+        if ($cached) {
+            return rest_ensure_response($cached);
+        }
 
         $today = date('Ymd');
         $args = [
@@ -78,6 +103,7 @@ class Voelgoed_Events_Calendar {
             'posts_per_page' => -1,
             'meta_query'     => []
         ];
+
 
         if (empty($selected_post_type) && empty($start_date) && empty($end_date) && empty($month) && empty($search) && empty($town)) {
             $args['meta_query'][] = [
@@ -170,11 +196,70 @@ class Voelgoed_Events_Calendar {
         }
         $content = ob_get_clean();
 
-        wp_send_json_success([
+        $response = [
             'content'      => $content,
             'total_pages'  => $total_pages,
             'current_page' => $paged,
+        ];
+        set_transient($cache_key, $response, 5 * MINUTE_IN_SECONDS);
+        return rest_ensure_response($response);
+    }
+
+    public function register_rest_routes() {
+        register_rest_route('vg-events/v1', '/events', [
+            'methods'  => 'GET',
+            'callback' => [$this, 'rest_load'],
+            'permission_callback' => '__return_true',
         ]);
+    }
+
+    public function admin_menu() {
+        add_options_page('VG Events Calendar', 'VG Events Calendar', 'manage_options', 'vg-events-calendar', [$this, 'settings_page']);
+    }
+
+    public function register_settings() {
+        register_setting('vg_events', $this->option_template, ['type' => 'integer', 'default' => 38859]);
+        register_setting('vg_events', $this->option_datepicker, ['type' => 'boolean', 'default' => 1]);
+    }
+
+    public function settings_page() {
+        ?>
+        <div class="wrap">
+            <h1>Voelgoed Events Calendar</h1>
+            <form method="post" action="options.php">
+                <?php settings_fields('vg_events'); ?>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="<?php echo esc_attr($this->option_template); ?>">Default Template ID</label></th>
+                        <td><input name="<?php echo esc_attr($this->option_template); ?>" type="number" value="<?php echo esc_attr(get_option($this->option_template, 38859)); ?>" class="regular-text"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Enable Datepicker</th>
+                        <td><input name="<?php echo esc_attr($this->option_datepicker); ?>" type="checkbox" value="1" <?php checked(get_option($this->option_datepicker, 1), 1); ?>></td>
+                    </tr>
+                </table>
+                <?php submit_button(); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    private function get_towns() {
+        global $wpdb;
+        $results = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='dorpstad' AND meta_value<>'' ORDER BY meta_value ASC");
+        return array_values(array_filter($results));
+    }
+
+    private function get_months() {
+        global $wpdb;
+        $dates = $wpdb->get_col("SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='datum' AND meta_value<>''");
+        $months = [];
+        foreach ($dates as $d) {
+            $m = date('m', strtotime($d));
+            $months[$m] = $m;
+        }
+        ksort($months);
+        return array_keys($months);
     }
 
     private function sort_posts_by_datum($posts) {
