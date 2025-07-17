@@ -35,3 +35,8 @@
 ## 1.4.1
 - Fixed initial event sorting and future-date filtering.
 - Improved Elementor loop rendering and added optional debug mode.
+
+## 1.5.0
+- Added vg_events_debug option and frontend debug output per loop item.
+- Console logging now shows REST params and template render issues.
+- Injects fallback styles and markup when Elementor templates fail.
