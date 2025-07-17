@@ -58,5 +58,6 @@ $post_types = isset($this) ? $this->post_types : [];
                 <button id="next-page">Volgende</button>
             </div>
         </div>
+        <pre id="vg-events-debug" style="display:none; background:#f5f5f5; padding:10px; border:1px solid #ccc; white-space:pre-wrap;"></pre>
     </div>
 </div>

@@ -159,6 +159,17 @@ class VGEventsCalendar {
       this.totalPages = data.total_pages || 1;
       this.currentPage = data.current_page || 1;
       this.updatePagination();
+      if (this.config.debug && data.debug) {
+        console.log('VG Events Debug:', data.debug);
+        const dbg = document.getElementById('vg-events-debug');
+        if (dbg) {
+          dbg.style.display = 'block';
+          dbg.textContent = JSON.stringify(data.debug, null, 2);
+        }
+      } else {
+        const dbg = document.getElementById('vg-events-debug');
+        if (dbg) dbg.style.display = 'none';
+      }
     } catch (err) {
       console.error(err);
       container.innerHTML = '<p>Error loading content. Please try again.</p>';
