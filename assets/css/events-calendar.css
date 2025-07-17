@@ -126,3 +126,8 @@
   border-radius: var(--filter-border-radius);
   color: #317b31;
 }
+
+#vg-events-spinner {
+  text-align: center;
+  margin: 1rem 0;
+}

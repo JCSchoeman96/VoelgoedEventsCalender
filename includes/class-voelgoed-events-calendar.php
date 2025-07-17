@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.3.0';
+    private $version = '1.4.0';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
@@ -36,7 +36,6 @@ class Voelgoed_Events_Calendar {
         add_action('rest_api_init', [$this, 'register_rest_routes']);
         add_action('admin_menu', [$this, 'admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
-        add_action('save_post', [$this, 'clear_cache'], 10, 3);
         add_action('wp_head', [$this, 'preload_flatpickr_assets']);
         register_block_type(__DIR__ . '/../assets/js/blocks.js', [
             'render_callback' => [$this, 'shortcode'],
@@ -74,6 +73,7 @@ class Voelgoed_Events_Calendar {
         $data = [
             'rest_url'   => esc_url_raw(rest_url('vg-events/v1/events')),
             'post_types' => $this->post_types,
+            'labels'     => vg_events_get_post_type_labels(),
             'template_id'=> intval(get_option($this->option_template, 38859)),
             'useDatepicker' => (bool) $enable_datepicker,
             'flatpickr_js' => 'https://cdn.jsdelivr.net/npm/flatpickr',
@@ -94,17 +94,21 @@ class Voelgoed_Events_Calendar {
 
     public function rest_load(WP_REST_Request $request) {
         $params = $request->get_params();
-        $cache_key = 'vg_events_' . md5( serialize( $params ) );
+        $cache_key = 'vg_events_results_' . md5( serialize( $params ) );
         if ( ! $request->get_param( 'cache_bust' ) ) {
-            $cached = wp_cache_get( $cache_key, 'vg_events' );
-            if ( $cached ) {
-                return rest_ensure_response( $cached );
+            $cached = get_transient( $cache_key );
+            if ( false === $cached ) {
+                $cached = wp_cache_get( $cache_key );
+            }
+            if ( false !== $cached ) {
+                return rest_ensure_response( apply_filters( 'vg_events_rest_response', $cached ) );
             }
         }
 
         $response = $this->get_events_response( $params );
-        wp_cache_set( $cache_key, $response, 'vg_events', 300 );
-        return rest_ensure_response( $response );
+        set_transient( $cache_key, $response, 300 );
+        wp_cache_set( $cache_key, $response, '', 300 );
+        return rest_ensure_response( apply_filters( 'vg_events_rest_response', $response ) );
     }
 
     private function get_events_response( $params ) {
@@ -191,6 +195,7 @@ class Voelgoed_Events_Calendar {
             ];
         }
 
+        $args  = apply_filters( 'vg_events_filter_args', $args, $params );
         $query = new WP_Query($args);
         $all_posts = $query->posts;
         $sorted_posts = $this->sort_posts_by_datum($all_posts);
@@ -254,13 +259,29 @@ class Voelgoed_Events_Calendar {
             <h1>Voelgoed Events Calendar</h1>
             <form method="post" action="options.php">
                 <?php settings_fields('vg_events'); ?>
+
+                <h2>Display Settings</h2>
                 <table class="form-table" role="presentation">
                     <tr>
-                        <th scope="row"><label for="<?php echo esc_attr($this->option_template); ?>">Default Template ID</label></th>
-                        <td><input name="<?php echo esc_attr($this->option_template); ?>" type="number" value="<?php echo esc_attr(get_option($this->option_template, 38859)); ?>" class="regular-text"></td>
+                        <th scope="row"><label for="<?php echo esc_attr($this->option_template); ?>">Template ID</label></th>
+                        <td>
+                            <input name="<?php echo esc_attr($this->option_template); ?>" type="number" value="<?php echo esc_attr(get_option($this->option_template, 38859)); ?>" class="regular-text">
+                            <p class="description">Elementor template used for each event.</p>
+                        </td>
                     </tr>
                     <tr>
-                        <th scope="row">Enabled Post Types</th>
+                        <th scope="row">Enable Datepicker Fallback</th>
+                        <td>
+                            <input name="<?php echo esc_attr($this->option_datepicker); ?>" type="checkbox" value="1" <?php checked(get_option($this->option_datepicker, 1), 1); ?>>
+                            <p class="description">Load JS datepicker when browsers lack native support.</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <h2>Enabled Post Types</h2>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row">Post Types</th>
                         <td>
                             <?php $saved = (array) get_option( $this->option_post_types, $this->default_post_types ); ?>
                             <?php foreach ( $this->default_post_types as $pt ) : ?>
@@ -270,11 +291,18 @@ class Voelgoed_Events_Calendar {
                             <?php endforeach; ?>
                         </td>
                     </tr>
+                </table>
+
+                <h2>Detected Towns (Read-only)</h2>
+                <table class="form-table" role="presentation">
                     <tr>
-                        <th scope="row">Enable JS Datepicker Fallback</th>
-                        <td><input name="<?php echo esc_attr($this->option_datepicker); ?>" type="checkbox" value="1" <?php checked(get_option($this->option_datepicker, 1), 1); ?>></td>
+                        <th scope="row">Towns</th>
+                        <td>
+                            <textarea readonly rows="5" style="width:100%"><?php echo esc_textarea( implode( ", ", vg_events_get_towns() ) ); ?></textarea>
+                        </td>
                     </tr>
                 </table>
+
                 <?php submit_button(); ?>
             </form>
         </div>
@@ -282,11 +310,11 @@ class Voelgoed_Events_Calendar {
     }
 
     private function get_towns() {
-        return voelgoed_events_get_towns();
+        return vg_events_get_towns();
     }
 
     private function get_months() {
-        return voelgoed_events_get_months();
+        return vg_events_get_months();
     }
 
     public function render_events( $params = [] ) {
@@ -294,13 +322,6 @@ class Voelgoed_Events_Calendar {
         return $data['content'];
     }
 
-    public function clear_cache( $post_id, $post, $update ) {
-        if ( ! $post || ! in_array( $post->post_type, $this->post_types, true ) ) {
-            return;
-        }
-        wp_cache_delete( 'vg_towns', 'vg_events' );
-        wp_cache_delete( 'vg_months', 'vg_events' );
-    }
 
     public function preload_flatpickr_assets() {
         if ( get_option( $this->option_datepicker, 1 ) ) {

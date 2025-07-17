@@ -50,6 +50,7 @@ $post_types = isset($this) ? $this->post_types : [];
             }
             ?>
         </div>
+        <div id="vg-events-spinner" style="display:none;">Loading...</div>
         <div class="pagination-wrapper">
             <div id="pagination-controls" class="pagination-controls">
                 <button id="prev-page" disabled>Vorige</button>
