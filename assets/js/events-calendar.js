@@ -85,7 +85,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 month: month,
                 town: town,
                 template_id: vgEvents.template_id,
-                paged: page
+                paged: page,
+                _wpnonce: vgEvents.nonce
             });
             const response = await fetch(vgEvents.rest_url + '?' + params.toString());
             const data = await response.json();

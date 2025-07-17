@@ -42,7 +42,14 @@ $post_types = isset($this) ? $this->post_types : [];
         </div>
     </div>
     <div class="content-and-pagination">
-        <div id="elementor-loop-content" class="content"></div>
+        <div id="elementor-loop-content" class="content">
+            <?php
+            $no_filters = empty($_GET['search']) && empty($_GET['month']) && empty($_GET['town']) && empty($_GET['start']) && empty($_GET['end']) && empty($_GET['selected_post_type']);
+            if ( $no_filters && isset( $this ) ) {
+                echo $this->render_events();
+            }
+            ?>
+        </div>
         <div class="pagination-wrapper">
             <div id="pagination-controls" class="pagination-controls">
                 <button id="prev-page" disabled>Vorige</button>
