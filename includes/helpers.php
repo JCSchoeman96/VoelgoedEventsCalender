@@ -118,6 +118,9 @@ function vg_events_clear_cache_on_save( $post_id, $post ) {
     }
     delete_transient( 'vg_events_cached_towns' );
     delete_transient( 'vg_events_cached_months' );
+    global $wpdb;
+    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_vg_events_%'" );
+    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_site_transient_vg_events_%'" );
 }
 
 add_action( 'save_post', 'vg_events_clear_cache_on_save', 10, 2 );

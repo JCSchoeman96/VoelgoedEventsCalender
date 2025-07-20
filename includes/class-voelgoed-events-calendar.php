@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.6.1';
+    private $version = '1.7.0';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
@@ -219,6 +219,7 @@ class Voelgoed_Events_Calendar {
         $current_page_posts = array_slice($sorted_posts, $start, $posts_per_page);
 
         $debug_items = [];
+        $schema_events = [];
 
         ob_start();
         if (!empty($current_page_posts)) {
@@ -230,6 +231,35 @@ class Voelgoed_Events_Calendar {
                 include plugin_dir_path(__FILE__) . '/../templates/vg-events-loop.php';
                 $html = ob_get_clean();
                 echo $html;
+
+                $meta  = get_post_meta( $post->ID, '', true );
+                $datum = isset( $meta['datum'] ) ? $meta['datum'] : '';
+                $dt    = $datum ? new DateTime( $datum ) : false;
+                $iso   = $dt ? $dt->format( 'c' ) : '';
+                $venue = isset( $meta['venue'] ) ? $meta['venue'] : '';
+                $event = [
+                    '@type'       => 'Event',
+                    'name'        => get_the_title( $post ),
+                    'startDate'   => $iso,
+                    'endDate'     => $iso,
+                    'description' => get_the_excerpt( $post ),
+                    'image'       => get_the_post_thumbnail_url( $post, 'full' ),
+                    'url'         => get_permalink( $post ),
+                    'location'    => [
+                        '@type' => 'Place',
+                        'name'  => $venue,
+                    ],
+                ];
+                /**
+                 * Filter schema data for an individual event.
+                 *
+                 * @param array   $event Array of schema values.
+                 * @param WP_Post $post  Event post object.
+                 * @param array   $meta  Raw post meta.
+                 */
+                $event = apply_filters( 'vg_events_schema_event', $event, $post, $meta );
+                $schema_events[] = $event;
+
                 if ( $this->debug ) {
                     $debug_items[] = [
                         'post_id'   => $post->ID,
@@ -242,11 +272,20 @@ class Voelgoed_Events_Calendar {
             echo 'Geen events gevind nie.';
         }
         $content = ob_get_clean();
+        if ( ! empty( $schema_events ) ) {
+            $content .= '<script type="application/ld+json">' .
+                wp_json_encode( [
+                    '@context' => 'https://schema.org',
+                    '@graph'   => $schema_events,
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) .
+            '</script>';
+        }
 
         $response = [
             'content'      => $content,
             'total_pages'  => $total_pages,
             'current_page' => $paged,
+            'schema'       => $schema_events,
         ];
         if ( $this->debug ) {
             $response['debug'] = [

@@ -53,3 +53,9 @@
 - Support `?vg_debug=1` to enable debug regardless of option.
 - Output JSON-LD event data and improved accessibility markup.
 - Enqueue new minified CSS file and responsive grid tweaks.
+
+## 1.7.0
+- Consolidated JSON-LD output into a single `@graph` block with additional
+  fields like `endDate`, `description`, `image` and `url`.
+- Added `vg_events_schema_event` filter to customize schema data.
+- Cached loops now include the schema markup for better SEO.

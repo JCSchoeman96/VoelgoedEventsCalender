@@ -16,10 +16,6 @@ $month     = $dt ? wp_date( 'M', $dt->getTimestamp() ) : '';
 $iso_date  = $dt ? $dt->format( 'c' ) : '';
 $vg_events_debug = isset($vg_events_debug) ? (bool) $vg_events_debug : false;
 ?>
-<style>
-.vg-loop-item{padding:15px 0;font-family:'Lato',sans-serif;}
-.vg-grid{display:grid;grid-template-columns:70px 1fr auto;gap:15px;align-items:center;}
-</style>
 <article class="vg-loop-item" itemscope itemtype="https://schema.org/Event">
     <div class="vg-grid">
         <div class="vg-date-block">
@@ -70,14 +66,4 @@ $vg_events_debug = isset($vg_events_debug) ? (bool) $vg_events_debug : false;
             'lees_meer_link' => $lees_meer,
         ], true) ); ?>
     </div>
-    <?php endif; ?>
-    <script type="application/ld+json">
-    <?php echo wp_json_encode([
-        '@context' => 'https://schema.org',
-        '@type'    => 'Event',
-        'name'     => get_the_title(),
-        'startDate'=> $iso_date,
-        'location' => [ '@type' => 'Place', 'name' => $venue ],
-    ], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE ); ?>
-    </script>
-</article>
+    <?php endif; ?></article>
