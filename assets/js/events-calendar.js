@@ -146,7 +146,14 @@ class VGEventsCalendar {
   async loadResults(postType = '', startDate = '', endDate = '', search = '', month = '', town = '') {
     const container = document.getElementById('elementor-loop-content');
     if (this.spinner) this.spinner.style.display = 'block';
-    container.innerHTML = '<p>Loading...</p>';
+    container.setAttribute('aria-busy', 'true');
+    const skeleton = document.getElementById('vg-events-skeleton');
+    if (skeleton) {
+      skeleton.style.display = 'block';
+      container.innerHTML = skeleton.innerHTML;
+    } else {
+      container.innerHTML = '<p>Loading...</p>';
+    }
     try {
       const params = new URLSearchParams({
         post_types: this.config.post_types,
@@ -172,7 +179,11 @@ class VGEventsCalendar {
         console.log('[VG Events Plugin] Response:', data);
         console.log(`[VG Events Plugin] Request time: ${Math.round(endTime - startTime)}ms`);
       }
+      if (skeleton) skeleton.style.display = 'none';
       container.innerHTML = data.content || '<p>No posts found.</p>';
+      if (data.next_page) {
+        this.nextPageCache = data.next_page;
+      }
       this.totalPages = data.total_pages || 1;
       this.currentPage = data.current_page || 1;
       this.updatePagination();
@@ -189,9 +200,11 @@ class VGEventsCalendar {
       }
     } catch (err) {
       console.error(err);
+      if (skeleton) skeleton.style.display = 'none';
       container.innerHTML = '<p>Error loading content. Please try again.</p>';
     } finally {
       if (this.spinner) this.spinner.style.display = 'none';
+      container.setAttribute('aria-busy', 'false');
     }
   }
 
