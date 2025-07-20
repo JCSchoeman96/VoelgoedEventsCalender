@@ -59,3 +59,9 @@
   fields like `endDate`, `description`, `image` and `url`.
 - Added `vg_events_schema_event` filter to customize schema data.
 - Cached loops now include the schema markup for better SEO.
+
+## 1.8.0
+- Added persistent WP_Query caching with object cache and cache headers.
+- Included organizer, performer and offers in JSON-LD data.
+- REST responses now expose cache hit status when debug mode is enabled.
+- Bumped plugin version to 1.8.0.
