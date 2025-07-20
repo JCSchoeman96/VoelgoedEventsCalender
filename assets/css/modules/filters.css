@@ -1,0 +1,46 @@
+.filters input[type="text"],
+.filters select,
+#start-date.hasDatepicker,
+#end-date.hasDatepicker {
+  font-size: var(--filter-font-size);
+  font-family: var(--filter-font-family);
+  padding: var(--filter-padding);
+  border-radius: var(--filter-border-radius);
+  background: var(--filter-bg);
+  color: var(--filter-color);
+  border: var(--filter-border);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filters input[type="text"]:focus,
+.filters select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #ff3800;
+}
+
+#reset-filters {
+  margin-top: 1rem;
+  background-color: #ccc;
+  border: var(--filter-border);
+  padding: 8px 12px;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-radius: var(--filter-border-radius);
+  transition: background 0.2s ease;
+}
+
+#reset-filters:hover {
+  background-color: #aaa;
+}
+
+#filter-reset-msg {
+  font-size: 0.9rem;
+  background-color: #e6f9e6;
+  border: 1px solid #6bb26b;
+  padding: 8px 12px;
+  border-radius: var(--filter-border-radius);
+  color: #317b31;
+}

@@ -1,0 +1,46 @@
+#vg-events-spinner {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.vg-skeleton {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.vg-skeleton-item {
+  display: grid;
+  grid-template-columns: 4.375rem 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.vg-skeleton-thumb {
+  width: 4.375rem;
+  height: 3.5rem;
+  background: #ddd;
+  border-radius: 4px;
+  animation: vg-pulse 1.5s infinite;
+}
+
+.vg-skeleton-lines {
+  width: 100%;
+}
+
+.vg-skeleton .line {
+  height: 1rem;
+  background: #eee;
+  border-radius: 4px;
+  animation: vg-pulse 1.5s infinite;
+}
+
+.vg-skeleton .line.short {
+  width: 60%;
+}
+
+@keyframes vg-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
