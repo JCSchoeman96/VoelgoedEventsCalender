@@ -81,11 +81,18 @@ class VGEventsCalendar {
     if (params.get('end')) this.endDate.value = params.get('end');
 
     document.querySelectorAll('#post-type-filters .post-type-filter').forEach(el => {
-      el.addEventListener('click', () => {
+      const activate = () => {
         document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
         this.currentPage = 1;
         this.triggerLoad();
+      };
+      el.addEventListener('click', activate);
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activate();
+        }
       });
     });
 

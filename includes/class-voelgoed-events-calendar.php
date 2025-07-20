@@ -5,7 +5,9 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.7.0';
+    private $version = '1.8.0';
+    /** Duration in seconds for cached queries and renders */
+    private $cache_ttl = 300;
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
@@ -101,22 +103,32 @@ class Voelgoed_Events_Calendar {
     }
 
     public function rest_load(WP_REST_Request $request) {
-        $params = $request->get_params();
+        $params    = $request->get_params();
         $cache_key = 'vg_events_results_' . md5( serialize( $params ) );
+        $from_cache = false;
         if ( ! $request->get_param( 'cache_bust' ) ) {
             $cached = get_transient( $cache_key );
             if ( false === $cached ) {
                 $cached = wp_cache_get( $cache_key );
             }
             if ( false !== $cached ) {
-                return rest_ensure_response( apply_filters( 'vg_events_rest_response', $cached ) );
+                $from_cache = true;
+                $response   = $cached;
             }
         }
 
-        $response = $this->get_events_response( $params );
-        set_transient( $cache_key, $response, 300 );
-        wp_cache_set( $cache_key, $response, '', 300 );
-        return rest_ensure_response( apply_filters( 'vg_events_rest_response', $response ) );
+        if ( empty( $response ) ) {
+            $response = $this->get_events_response( $params );
+            set_transient( $cache_key, $response, $this->cache_ttl );
+            wp_cache_set( $cache_key, $response, '', $this->cache_ttl );
+        }
+
+        $resp = rest_ensure_response( apply_filters( 'vg_events_rest_response', $response ) );
+        $resp->header( 'Cache-Control', 'max-age=' . $this->cache_ttl . ', public' );
+        if ( $this->debug ) {
+            $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
+        }
+        return $resp;
     }
 
     private function get_events_response( $params ) {
@@ -204,9 +216,14 @@ class Voelgoed_Events_Calendar {
         }
 
         $args  = apply_filters( 'vg_events_filter_args', $args, $params );
-        $query = new WP_Query($args);
-        $all_posts = $query->posts;
-        $sorted_posts = $this->sort_posts_by_datum($all_posts);
+        $query_key = 'vg_events_query_' . md5( serialize( $args ) );
+        $sorted_posts = wp_cache_get( $query_key );
+        if ( false === $sorted_posts ) {
+            $query        = new WP_Query( $args );
+            $all_posts    = $query->posts;
+            $sorted_posts = $this->sort_posts_by_datum( $all_posts );
+            wp_cache_set( $query_key, $sorted_posts, '', $this->cache_ttl );
+        }
         $total_posts = count($sorted_posts);
         $total_pages = ceil($total_posts / $posts_per_page);
         if ($paged < 1) {
@@ -248,6 +265,22 @@ class Voelgoed_Events_Calendar {
                     'location'    => [
                         '@type' => 'Place',
                         'name'  => $venue,
+                    ],
+                    'organizer'   => [
+                        '@type' => 'Organization',
+                        'name'  => get_bloginfo( 'name' ),
+                        'url'   => home_url(),
+                    ],
+                    'performer'   => [
+                        '@type' => 'Person',
+                        'name'  => get_the_author_meta( 'display_name', $post->post_author ),
+                    ],
+                    'offers'      => [
+                        '@type'         => 'Offer',
+                        'url'           => get_permalink( $post ),
+                        'price'         => '',
+                        'priceCurrency' => 'ZAR',
+                        'availability'  => 'https://schema.org/InStock',
                     ],
                 ];
                 /**
@@ -406,8 +439,8 @@ class Voelgoed_Events_Calendar {
 
         $data    = $this->get_events_response( $params );
         $content = $data['content'];
-        set_transient( $cache_key, $content, 300 );
-        wp_cache_set( $cache_key, $content, '', 300 );
+        set_transient( $cache_key, $content, $this->cache_ttl );
+        wp_cache_set( $cache_key, $content, '', $this->cache_ttl );
         return $content;
     }
 

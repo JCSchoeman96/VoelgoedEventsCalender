@@ -26,7 +26,7 @@ $vg_events_debug = isset($vg_events_debug) ? (bool) $vg_events_debug : false;
         </div>
         <?php if ( has_post_thumbnail() ) : ?>
             <div class="vg-thumb">
-                <?php the_post_thumbnail( 'medium', [ 'loading' => 'lazy' ] ); ?>
+                <?php the_post_thumbnail( 'medium', [ 'loading' => 'lazy', 'alt' => the_title_attribute( [ 'echo' => false ] ) ] ); ?>
             </div>
         <?php endif; ?>
         <div class="vg-event-info" itemprop="name">
