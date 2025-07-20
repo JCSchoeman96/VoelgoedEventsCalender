@@ -7,6 +7,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Generate cache key for the vg_events cache group.
+ *
+ * @param string $type    Cache type.
+ * @param array  $params  Optional parameters used to build the key.
+ *
+ * @return string
+ */
+function vg_events_get_cache_key( $type, $params = [] ) {
+    return 'vg_events_' . $type . '_' . md5( serialize( $params ) );
+}
+
+/**
  * Get list of towns.
  *
  * @return array
@@ -19,14 +31,14 @@ function vg_events_get_towns() {
 
     $cached = get_transient( 'vg_events_cached_towns' );
     if ( false === $cached ) {
-        $cached = wp_cache_get( 'vg_events_cached_towns' );
+        $cached = wp_cache_get( 'vg_events_cached_towns', 'vg_events' );
     }
     if ( false === $cached ) {
         global $wpdb;
         $results = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='dorpstad' AND meta_value<>'' ORDER BY meta_value ASC" );
         $cached  = array_values( array_filter( $results ) );
         set_transient( 'vg_events_cached_towns', $cached, 12 * HOUR_IN_SECONDS );
-        wp_cache_set( 'vg_events_cached_towns', $cached, '', 12 * HOUR_IN_SECONDS );
+        wp_cache_set( 'vg_events_cached_towns', $cached, 'vg_events', 12 * HOUR_IN_SECONDS );
     }
 
     /**
@@ -45,7 +57,7 @@ function vg_events_get_towns() {
 function vg_events_get_months() {
     $cached = get_transient( 'vg_events_cached_months' );
     if ( false === $cached ) {
-        $cached = wp_cache_get( 'vg_events_cached_months' );
+        $cached = wp_cache_get( 'vg_events_cached_months', 'vg_events' );
     }
     if ( false === $cached ) {
         global $wpdb;
@@ -58,7 +70,7 @@ function vg_events_get_months() {
         ksort( $months );
         $cached = array_keys( $months );
         set_transient( 'vg_events_cached_months', $cached, 12 * HOUR_IN_SECONDS );
-        wp_cache_set( 'vg_events_cached_months', $cached, '', 12 * HOUR_IN_SECONDS );
+        wp_cache_set( 'vg_events_cached_months', $cached, 'vg_events', 12 * HOUR_IN_SECONDS );
     }
 
     /**
@@ -124,3 +136,16 @@ function vg_events_clear_cache_on_save( $post_id, $post ) {
 }
 
 add_action( 'save_post', 'vg_events_clear_cache_on_save', 10, 2 );
+
+/**
+ * Invalidate cached data when events are modified.
+ */
+function vg_events_invalidate_cache() {
+    global $wpdb;
+    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_vg_events_%'" );
+    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_site_transient_vg_events_%'" );
+    wp_cache_flush();
+}
+
+add_action( 'save_post', 'vg_events_invalidate_cache' );
+add_action( 'deleted_post', 'vg_events_invalidate_cache' );
