@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.9.0';
+    private $version = '1.9.1';
     /** Duration in seconds for cached queries and renders */
     private $cache_ttl = 300;
     /** Cache group for object caching */
@@ -115,8 +115,12 @@ class Voelgoed_Events_Calendar {
      * @return WP_REST_Response|WP_Error
      */
     public function rest_load( WP_REST_Request $request ) {
-        $start     = microtime( true );
-        $params    = $request->get_params();
+        global $wpdb;
+        $start       = microtime( true );
+        $query_start = $wpdb->num_queries;
+        $params      = $request->get_params();
+
+        $debug_mode = $this->debug || $request->get_param( 'vg_debug' );
 
         $nonce = $request->get_param( '_wpnonce' );
         if ( ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
@@ -151,14 +155,24 @@ class Voelgoed_Events_Calendar {
             return new WP_REST_Response( null, 304, [ 'ETag' => $etag_header ] );
         }
 
+        $exec_time = round( ( microtime( true ) - $start ) * 1000, 2 );
         $resp = rest_ensure_response( apply_filters( 'vg_events_rest_response', $response ) );
         $resp->header( 'Cache-Control', 'max-age=' . $this->cache_ttl . ', public' );
         $resp->header( 'ETag', $etag_header );
         $resp->header( 'Last-Modified', gmdate( 'D, d M Y H:i:s', time() ) . ' GMT' );
-        $resp->header( 'X-Exec-Time', round( ( microtime( true ) - $start ) * 1000, 2 ) . 'ms' );
+        $resp->header( 'X-Exec-Time', $exec_time . 'ms' );
 
-        if ( $this->debug ) {
+        if ( $debug_mode ) {
+            $db_queries = $wpdb->num_queries - $query_start;
             $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
+            $resp->header( 'X-DB-Queries', $db_queries );
+            $response['debug'] = [
+                'cache'        => $from_cache ? 'HIT' : 'MISS',
+                'db_queries'   => $db_queries,
+                'exec_time_ms' => $exec_time,
+                'params'       => $params,
+            ];
+            $resp->set_data( $response );
         }
 
         return $resp;
@@ -467,10 +481,12 @@ class Voelgoed_Events_Calendar {
     }
 
     public function render_events( $params = [] ) {
+        do_action( 'vg_events_before_render', $params );
         $cache_key = vg_events_get_cache_key( 'render', $params );
         if ( ! $this->debug && empty( $params['cache_bust'] ) ) {
             $cached = wp_cache_get( $cache_key, $this->cache_group );
             if ( false !== $cached ) {
+                do_action( 'vg_events_after_render', $params, $cached );
                 return $cached;
             }
         }
@@ -478,6 +494,7 @@ class Voelgoed_Events_Calendar {
         $data    = $this->get_events_response( $params );
         $content = $data['content'];
         wp_cache_set( $cache_key, $content, $this->cache_group, $this->cache_ttl );
+        do_action( 'vg_events_after_render', $params, $content );
         return $content;
     }
 

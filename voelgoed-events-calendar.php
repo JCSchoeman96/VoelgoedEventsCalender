@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Voelgoed Events Calendar
  * Description: Display events with filters using Elementor.
- * Version: 1.9.0
+ * Version: 1.9.1
  * Author: Example
  */
 
@@ -36,6 +36,7 @@ add_action( 'vg_events_prewarm_cache', function() {
 } );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
+    require_once plugin_dir_path( __FILE__ ) . 'includes/class-vg-events-cli-stats.php';
     /**
      * Clear all cached event data.
      */

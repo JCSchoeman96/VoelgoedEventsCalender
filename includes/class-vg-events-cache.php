@@ -70,6 +70,28 @@ class VG_Events_Cache {
     public function clear_all() {
         $this->invalidate_prefix( '' );
     }
+
+    /**
+     * Retrieve cache statistics.
+     *
+     * @return array
+     */
+    public function stats() {
+        global $wpdb;
+        $count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_vg_events_%' ) );
+        $oldest = $wpdb->get_var( $wpdb->prepare( "SELECT MIN(option_value) FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_timeout_vg_events_%' ) );
+        $oldest_ts = $oldest ? date_i18n( 'Y-m-d H:i:s', (int) $oldest ) : '';
+        $cache = $GLOBALS['wp_object_cache'];
+        $hits   = isset( $cache->cache_hits ) ? (int) $cache->cache_hits : 0;
+        $misses = isset( $cache->cache_misses ) ? (int) $cache->cache_misses : 0;
+        $ratio  = ( $hits + $misses ) ? round( $hits / ( $hits + $misses ) * 100, 2 ) : 0;
+
+        return [
+            'count'  => $count,
+            'oldest' => $oldest_ts,
+            'hit_ratio' => $ratio,
+        ];
+    }
 }
 
 function vg_events_cache() {
