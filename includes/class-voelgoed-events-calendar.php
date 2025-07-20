@@ -104,7 +104,7 @@ class Voelgoed_Events_Calendar {
 
     public function shortcode() {
         ob_start();
-        include plugin_dir_path(__FILE__) . '../templates/shortcode.php';
+        include vg_events_template_path( 'shortcode.php' );
         return ob_get_clean();
     }
 
@@ -130,6 +130,9 @@ class Voelgoed_Events_Calendar {
         if ( $this->debug ) {
             $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
         }
+        $etag = md5( serialize( $response ) );
+        $resp->header( 'ETag', $etag );
+        $resp->header( 'Last-Modified', gmdate( 'D, d M Y H:i:s', time() ) . ' GMT' );
         return $resp;
     }
 
@@ -253,7 +256,7 @@ class Voelgoed_Events_Calendar {
                 setup_postdata($post);
                 $vg_events_debug = $this->debug;
                 ob_start();
-                include plugin_dir_path(__FILE__) . '/../templates/vg-events-loop.php';
+                include vg_events_template_path( 'vg-events-loop.php' );
                 $html = ob_get_clean();
                 echo $html;
 

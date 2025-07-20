@@ -122,14 +122,28 @@ function vg_events_get_post_type_labels() {
 }
 
 /**
+ * Locate a template with theme override support.
+ *
+ * @param string $file Template file name.
+ * @return string
+ */
+function vg_events_template_path( $file ) {
+    $located = locate_template( $file );
+    if ( ! $located ) {
+        $located = plugin_dir_path( __FILE__ ) . '../templates/' . $file;
+    }
+    return apply_filters( 'vg_events_template_path', $located, $file );
+}
+
+/**
  * Clear cached town and month lists when supported posts are saved.
  */
 function vg_events_clear_cache_on_save( $post_id, $post ) {
     if ( ! $post || ! in_array( $post->post_type, vg_events_get_supported_post_types(), true ) ) {
         return;
     }
-    delete_transient( 'vg_events_cached_towns' );
-    delete_transient( 'vg_events_cached_months' );
+    vg_events_cache()->invalidate( 'towns' );
+    vg_events_cache()->invalidate( 'months' );
     global $wpdb;
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_vg_events_%'" );
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_site_transient_vg_events_%'" );
@@ -144,6 +158,8 @@ function vg_events_invalidate_cache() {
     global $wpdb;
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_vg_events_%'" );
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_site_transient_vg_events_%'" );
+    vg_events_cache()->invalidate( 'towns' );
+    vg_events_cache()->invalidate( 'months' );
     wp_cache_flush();
 }
 

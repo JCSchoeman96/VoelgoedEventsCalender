@@ -66,6 +66,12 @@
 - REST responses now expose cache hit status when debug mode is enabled.
 - Bumped plugin version to 1.8.1.
 
+## 1.8.2
+- Added `VG_Events_Cache` class with invalidate helper.
+- Template files now support theme overrides via `vg_events_template_path` filter.
+- REST responses include `ETag` and `Last-Modified` headers.
+- Bumped plugin version to 1.8.2.
+
 ## 4.1.0
 - OPcache preloading for core plugin files.
 - Switched caching to persistent Redis/object cache with `vg_events` group.

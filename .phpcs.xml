@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<ruleset name="VoelgoedEvents">
+    <rule ref="WordPress" />
+    <file>voelgoed-events-calendar.php</file>
+    <file>includes</file>
+    <file>templates</file>
+</ruleset>
