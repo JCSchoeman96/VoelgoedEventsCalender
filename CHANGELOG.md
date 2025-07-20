@@ -101,3 +101,11 @@
 - Implemented fine-grained cache invalidation hooks.
 - JSON-LD and HTML now pre-generated and served from cache.
 - Deferred script loading and REST cache-control headers.
+
+## 5.0.0
+- Convert frontend script to TypeScript modules compiled via Rollup.
+- Added sessionStorage caching and prefetch of next page results.
+- New REST endpoint `/vg-events/v1/stats` exposing cache metrics.
+- Debug headers renamed to `X-Cache-Hit` and debug overlay enhanced.
+- Split CSS into modules with dark mode support.
+- Initial Jest tests and GitHub Actions workflow.

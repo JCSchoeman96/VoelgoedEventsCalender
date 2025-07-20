@@ -1,267 +1,259 @@
-class VGEventsCalendar {
-  constructor(config) {
-    this.config = config;
-    this.currentPage = 1;
-    this.totalPages = 1;
-    this.prefetchLink = null;
-    this.cacheEls();
-    this.init();
-  }
+var VGCalendar = (function () {
+    'use strict';
 
-  cacheEls() {
-    this.startDate = document.getElementById('start-date');
-    this.endDate = document.getElementById('end-date');
-    this.searchBar = document.getElementById('search-bar');
-    this.monthFilter = document.getElementById('month-filter');
-    this.townFilter = document.getElementById('town-filter');
-    this.spinner = document.getElementById('vg-events-spinner');
-    this.announcer = document.getElementById('vg-aria-announcer');
-  }
+    /******************************************************************************
+    Copyright (c) Microsoft Corporation.
 
-  init() {
-    this.initFilters();
-    this.triggerLoad();
-  }
+    Permission to use, copy, modify, and/or distribute this software for any
+    purpose with or without fee is hereby granted.
 
-  supportsDateInput() {
-    const input = document.createElement('input');
-    input.setAttribute('type', 'date');
-    const value = 'not-a-date';
-    input.setAttribute('value', value);
-    return input.value !== value;
-  }
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+    REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+    AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+    INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+    OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+    PERFORMANCE OF THIS SOFTWARE.
+    ***************************************************************************** */
+    /* global Reflect, Promise, SuppressedError, Symbol, Iterator */
 
-  loadFlatpickr() {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = this.config.flatpickr_css;
-    document.head.appendChild(link);
-    const script = document.createElement('script');
-    script.src = this.config.flatpickr_js;
-    script.onload = () => {
-      if (window.flatpickr) {
-        flatpickr(this.startDate, { dateFormat: 'Y-m-d' });
-        flatpickr(this.endDate, { dateFormat: 'Y-m-d' });
-      }
-    };
-    document.head.appendChild(script);
-  }
 
-  initFilters() {
-    if (this.config.useDatepicker) {
-      if (this.supportsDateInput()) {
-        this.startDate.type = 'date';
-        this.endDate.type = 'date';
-      } else {
-        this.loadFlatpickr();
-      }
-    }
-
-    if (Array.isArray(this.config.towns)) {
-      this.config.towns.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t;
-        this.townFilter.appendChild(opt);
-      });
-    }
-
-    if (Array.isArray(this.config.months)) {
-      this.config.months.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
-        this.monthFilter.appendChild(opt);
-      });
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('town')) this.townFilter.value = params.get('town');
-    if (params.get('month')) this.monthFilter.value = params.get('month');
-    if (params.get('search')) this.searchBar.value = params.get('search');
-    if (params.get('start')) this.startDate.value = params.get('start');
-    if (params.get('end')) this.endDate.value = params.get('end');
-
-    document.querySelectorAll('#post-type-filters .post-type-filter').forEach(el => {
-      el.setAttribute('aria-pressed', 'false');
-      const activate = () => {
-        document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => {
-          i.classList.remove('active');
-          i.setAttribute('aria-pressed', 'false');
+    function __awaiter(thisArg, _arguments, P, generator) {
+        function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+        return new (P || (P = Promise))(function (resolve, reject) {
+            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+            function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+            step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
-        el.classList.add('active');
-        el.setAttribute('aria-pressed', 'true');
-        this.currentPage = 1;
-        this.triggerLoad();
-      };
-      el.addEventListener('click', activate);
-      el.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          activate();
-        }
-      });
-    });
+    }
 
-    const debounced = this.debounce(() => {
-      this.currentPage = 1;
-      this.triggerLoad();
-    }, 300);
-
-    [this.startDate, this.endDate, this.searchBar, this.monthFilter, this.townFilter].forEach(el => {
-      el.addEventListener('input', debounced);
-      el.addEventListener('change', debounced);
-    });
-
-    document.getElementById('prev-page').addEventListener('click', () => {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-        this.triggerLoad();
-      }
-    });
-
-    document.getElementById('next-page').addEventListener('click', () => {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-        this.triggerLoad();
-      }
-    });
-
-    document.getElementById('reset-filters').addEventListener('click', () => {
-      this.searchBar.value = '';
-      this.townFilter.value = '';
-      this.monthFilter.value = '';
-      this.startDate.value = '';
-      this.endDate.value = '';
-      document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => {
-        i.classList.remove('active');
-        i.setAttribute('aria-pressed', 'false');
-      });
-      this.currentPage = 1;
-      this.loadResults();
-      const msg = document.getElementById('filter-reset-msg');
-      msg.style.display = 'block';
-      setTimeout(() => { msg.style.display = 'none'; }, 2500);
-    });
-  }
-
-  debounce(func, wait) {
-    let timeout;
-    return (...args) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func.apply(this, args), wait);
+    typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+        var e = new Error(message);
+        return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
-  }
 
-  async loadResults(postType = '', startDate = '', endDate = '', search = '', month = '', town = '') {
-    const container = document.getElementById('elementor-loop-content');
-    if (this.spinner) this.spinner.style.display = 'block';
-    container.setAttribute('aria-busy', 'true');
-    const skeleton = document.getElementById('vg-events-skeleton');
-    if (skeleton) {
-      skeleton.style.display = 'block';
-      container.innerHTML = skeleton.innerHTML;
-    } else {
-      container.innerHTML = '<p>Loading...</p>';
+    function debounce(fn, wait) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn(...args), wait);
+        };
     }
-    try {
-      const params = new URLSearchParams({
-        post_types: this.config.post_types,
-        selected_post_type: postType,
-        start_date: startDate,
-        end_date: endDate,
-        search: search,
-        month: month,
-        town: town,
-        template_id: this.config.template_id,
-        paged: this.currentPage,
-        _wpnonce: this.config.nonce,
-        prefetch_next: 1
-      });
-      const url = this.config.rest_url + '?' + params.toString();
-      window.dispatchEvent(new CustomEvent('vg_events_before_fetch', { detail: { params: params.toString() } }));
-      const startTime = performance.now();
-      if (this.config.debug) {
-        console.log('[VG Events Plugin] Request URL:', url);
-      }
-      const response = await fetch(url);
-      const data = await response.json();
-      const endTime = performance.now();
-      if (this.config.debug) {
-        console.log('[VG Events Plugin] Response:', data);
-        console.log(`[VG Events Plugin] Request time: ${Math.round(endTime - startTime)}ms`);
-      }
-      if (skeleton) skeleton.style.display = 'none';
-      container.innerHTML = data.content || '<p>No posts found.</p>';
-      if (data.next_page) {
-        this.nextPageCache = data.next_page;
-      }
-      window.dispatchEvent(new CustomEvent('vg_events_after_fetch', { detail: { params: params.toString(), response: data } }));
-      this.totalPages = data.total_pages || 1;
-      this.currentPage = data.current_page || 1;
-      this.updatePagination();
-      this.updatePrefetch(params);
-      if (this.announcer) {
-        const count = Array.isArray(data.schema) ? data.schema.length : 0;
-        let monthLabel = this.monthFilter.value;
-        if (this.monthFilter.options && this.monthFilter.selectedIndex > 0) {
-          monthLabel = this.monthFilter.options[this.monthFilter.selectedIndex].textContent;
+    function supportsSession() {
+        try {
+            const key = '__test';
+            sessionStorage.setItem(key, '1');
+            sessionStorage.removeItem(key);
+            return true;
         }
-        this.announcer.textContent = `${count} events loaded${monthLabel ? ' for ' + monthLabel : ''}`;
-      }
-      if (this.config.debug && data.debug) {
-        console.log('[VG Events Plugin] Debug info:', data.debug);
-        const dbg = document.getElementById('vg-events-debug');
-        if (dbg) {
-          dbg.classList.add('active');
-          dbg.textContent = JSON.stringify({ request: params.toString(), response: data.debug, timing: Math.round(endTime - startTime) + 'ms' }, null, 2);
+        catch (_a) {
+            return false;
         }
-      } else {
-        const dbg = document.getElementById('vg-events-debug');
-        if (dbg) dbg.classList.remove('active');
-      }
-    } catch (err) {
-      console.error(err);
-      if (skeleton) skeleton.style.display = 'none';
-      container.innerHTML = '<p>Error loading content. Please try again.</p>';
-    } finally {
-      if (this.spinner) this.spinner.style.display = 'none';
-      container.setAttribute('aria-busy', 'false');
     }
-  }
-
-  updatePagination() {
-    document.getElementById('page-info').textContent = `${this.currentPage} van ${this.totalPages}`;
-    document.getElementById('prev-page').disabled = this.currentPage === 1;
-    document.getElementById('next-page').disabled = this.currentPage === this.totalPages;
-  }
-
-  updatePrefetch(params) {
-    const next = new URLSearchParams(params.toString());
-    const nextPage = this.currentPage + 1;
-    if (nextPage <= this.totalPages) {
-      next.set('paged', nextPage);
-      const href = this.config.rest_url + '?' + next.toString();
-      if (!this.prefetchLink) {
-        this.prefetchLink = document.createElement('link');
-        this.prefetchLink.rel = 'prefetch';
-        this.prefetchLink.id = 'vg-events-prefetch';
-        document.head.appendChild(this.prefetchLink);
-      }
-      this.prefetchLink.href = href;
-    } else if (this.prefetchLink) {
-      this.prefetchLink.remove();
-      this.prefetchLink = null;
+    function getCache(key) {
+        if (supportsSession()) {
+            const item = sessionStorage.getItem(key);
+            if (item) {
+                try {
+                    const parsed = JSON.parse(item);
+                    if (!parsed.exp || parsed.exp > Date.now()) {
+                        return parsed.value;
+                    }
+                }
+                catch (_a) {
+                    return null;
+                }
+            }
+        }
+        return null;
     }
-  }
+    function setCache(key, value, ttl = 300000) {
+        if (supportsSession()) {
+            const payload = { value, exp: Date.now() + ttl };
+            try {
+                sessionStorage.setItem(key, JSON.stringify(payload));
+            }
+            catch (_a) {
+                /* noop */
+            }
+        }
+    }
+    function supportsDateInput() {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'date');
+        const value = 'not-a-date';
+        input.setAttribute('value', value);
+        return input.value !== value;
+    }
 
-  triggerLoad() {
-    const active = document.querySelector('#post-type-filters .post-type-filter.active');
-    const pt = active ? active.getAttribute('data-post-type') : '';
-    this.loadResults(pt, this.startDate.value, this.endDate.value, this.searchBar.value, this.monthFilter.value, this.townFilter.value);
-  }
-}
+    function fetchEvents(url) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const cached = getCache(url);
+            if (cached) {
+                return cached;
+            }
+            const res = yield fetch(url);
+            const data = yield res.json();
+            setCache(url, data, 300000);
+            return data;
+        });
+    }
 
-document.addEventListener('DOMContentLoaded', () => {
-  new VGEventsCalendar(window.vgEvents || {});
-});
+    function setPressed(el, pressed) {
+        el.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+    }
+    function announce(id, msg) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = msg;
+        }
+    }
+
+    function initFilters(filters, onChange) {
+        if (supportsDateInput()) {
+            filters.startDate.type = 'date';
+            filters.endDate.type = 'date';
+        }
+        filters.typeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filters.typeButtons.forEach(b => setPressed(b, false));
+                btn.classList.add('active');
+                setPressed(btn, true);
+                onChange();
+            });
+            btn.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    btn.click();
+                }
+            });
+        });
+        const debounced = debounce(onChange, 300);
+        [filters.startDate, filters.endDate, filters.searchBar, filters.monthFilter, filters.townFilter].forEach(el => {
+            el.addEventListener('change', debounced);
+            el.addEventListener('input', debounced);
+        });
+        filters.resetBtn.addEventListener('click', () => {
+            filters.startDate.value = '';
+            filters.endDate.value = '';
+            filters.searchBar.value = '';
+            filters.monthFilter.value = '';
+            filters.townFilter.value = '';
+            filters.typeButtons.forEach(b => {
+                b.classList.remove('active');
+                setPressed(b, false);
+            });
+            onChange();
+        });
+    }
+
+    function updatePagination(current, total) {
+        const info = document.getElementById('page-info');
+        const prev = document.getElementById('prev-page');
+        const next = document.getElementById('next-page');
+        if (info)
+            info.textContent = `${current} / ${total}`;
+        if (prev)
+            prev.disabled = current === 1;
+        if (next)
+            next.disabled = current === total;
+        announce('vg-aria-announcer', `${current} of ${total}`);
+    }
+
+    let link = null;
+    function prefetchNext(url) {
+        if (!link) {
+            link = document.createElement('link');
+            link.rel = 'prefetch';
+            document.head.appendChild(link);
+        }
+        link.href = url;
+    }
+
+    class Calendar {
+        constructor(cfg) {
+            this.currentPage = 1;
+            this.totalPages = 1;
+            this.config = cfg;
+            document.addEventListener('DOMContentLoaded', () => this.init());
+        }
+        init() {
+            var _a, _b;
+            const filters = {
+                startDate: document.getElementById('start-date'),
+                endDate: document.getElementById('end-date'),
+                searchBar: document.getElementById('search-bar'),
+                monthFilter: document.getElementById('month-filter'),
+                townFilter: document.getElementById('town-filter'),
+                typeButtons: document.querySelectorAll('#post-type-filters .post-type-filter'),
+                resetBtn: document.getElementById('reset-filters')
+            };
+            initFilters(filters, () => {
+                this.currentPage = 1;
+                this.load();
+            });
+            (_a = document.getElementById('prev-page')) === null || _a === void 0 ? void 0 : _a.addEventListener('click', () => {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.load();
+                }
+            });
+            (_b = document.getElementById('next-page')) === null || _b === void 0 ? void 0 : _b.addEventListener('click', () => {
+                if (this.currentPage < this.totalPages) {
+                    this.currentPage++;
+                    this.load();
+                }
+            });
+            this.load();
+        }
+        load() {
+            return __awaiter(this, void 0, void 0, function* () {
+                const active = document.querySelector('#post-type-filters .post-type-filter.active');
+                const params = new URLSearchParams({
+                    post_types: this.config.post_types.join(','),
+                    selected_post_type: active ? active.dataset.postType || '' : '',
+                    start_date: document.getElementById('start-date').value,
+                    end_date: document.getElementById('end-date').value,
+                    search: document.getElementById('search-bar').value,
+                    month: document.getElementById('month-filter').value,
+                    town: document.getElementById('town-filter').value,
+                    template_id: String(this.config.template_id),
+                    paged: String(this.currentPage),
+                    _wpnonce: this.config.nonce,
+                    prefetch_next: '1'
+                });
+                const url = `${this.config.rest_url}?${params.toString()}`;
+                const data = yield fetchEvents(url);
+                const container = document.getElementById('elementor-loop-content');
+                if (container) {
+                    container.innerHTML = data.content || '';
+                }
+                this.totalPages = data.total_pages || 1;
+                this.currentPage = data.current_page || 1;
+                updatePagination(this.currentPage, this.totalPages);
+                if (data.next_page) {
+                    const next = `${this.config.rest_url}?paged=${this.currentPage + 1}`;
+                    prefetchNext(next);
+                }
+                announce('vg-aria-announcer', `${data.schema ? data.schema.length : 0} events`);
+                if (this.config.debug && data.debug) {
+                    const panel = document.getElementById('vg-events-debug');
+                    if (panel) {
+                        panel.classList.add('active');
+                        panel.textContent = JSON.stringify(data.debug, null, 2);
+                    }
+                }
+            });
+        }
+    }
+    function init() {
+        if (window.vgEvents) {
+            new Calendar(window.vgEvents);
+        }
+    }
+    init();
+
+    return init;
+
+})();

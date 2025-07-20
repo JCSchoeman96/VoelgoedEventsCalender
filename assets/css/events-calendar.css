@@ -8,6 +8,9 @@
   --filter-border: none;
   --space-gap: clamp(0.75rem, 1vw, 1.25rem);
 }
+@import url("modules/filters.css");
+@import url("modules/pagination.css");
+@import url("modules/skeleton.css");
 .flex-container {
   display: grid;
   grid-template-columns: minmax(14rem, 20rem) 1fr;
@@ -258,6 +261,12 @@
   max-height: 300px;
   overflow: auto;
   transition: max-height 0.3s ease;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100%;
+  z-index: 9999;
 }
 .vg-debug-panel.active {
   display: block;
@@ -268,4 +277,10 @@
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
   }
+}
+
+@media (prefers-color-scheme: dark) {
+  .vg-datekal { background: #444; }
+  .vg-event-meta { color: #ccc; }
+  #prev-page, #next-page { background: #e67e22; }
 }

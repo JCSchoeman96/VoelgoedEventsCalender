@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.9.1';
+    private $version = '5.0.0';
     /** Duration in seconds for cached queries and renders */
     private $cache_ttl = 300;
     /** Cache group for object caching */
@@ -164,7 +164,7 @@ class Voelgoed_Events_Calendar {
 
         if ( $debug_mode ) {
             $db_queries = $wpdb->num_queries - $query_start;
-            $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
+            $resp->header( 'X-Cache-Hit', $from_cache ? 'HIT' : 'MISS' );
             $resp->header( 'X-DB-Queries', $db_queries );
             $response['debug'] = [
                 'cache'        => $from_cache ? 'HIT' : 'MISS',
@@ -390,6 +390,13 @@ class Voelgoed_Events_Calendar {
         register_rest_route('vg-events/v1', '/events', [
             'methods'  => 'GET',
             'callback' => [$this, 'rest_load'],
+            'permission_callback' => [$this, 'rest_permission_check'],
+        ]);
+        register_rest_route('vg-events/v1', '/stats', [
+            'methods'  => 'GET',
+            'callback' => function() {
+                return vg_events_cache()->stats();
+            },
             'permission_callback' => [$this, 'rest_permission_check'],
         ]);
     }
