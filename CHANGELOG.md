@@ -72,6 +72,16 @@
 - REST responses include `ETag` and `Last-Modified` headers.
 - Bumped plugin version to 1.8.2.
 
+## 1.9.0
+- Hardened direct database queries using `$wpdb->prepare()`.
+- REST API now supports `ETag`/`304` handling, execution timing headers and optional next page prefetching.
+- `VG_Events_Cache` gains granular invalidation and `clear_all()` method.
+- Added WP‑CLI commands `vg-events clear` and `vg-events prewarm`.
+- REST requests validate nonces and output is sanitized.
+- Introduced skeleton loader and improved `aria-live` accessibility.
+- Updated code comments to PHPDoc and ensured PHPCS compliance.
+- Bumped plugin version to 1.9.0.
+
 ## 4.1.0
 - OPcache preloading for core plugin files.
 - Switched caching to persistent Redis/object cache with `vg_events` group.

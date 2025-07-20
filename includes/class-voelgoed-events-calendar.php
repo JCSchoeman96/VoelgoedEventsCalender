@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.8.1';
+    private $version = '1.9.0';
     /** Duration in seconds for cached queries and renders */
     private $cache_ttl = 300;
     /** Cache group for object caching */
@@ -108,9 +108,22 @@ class Voelgoed_Events_Calendar {
         return ob_get_clean();
     }
 
-    public function rest_load(WP_REST_Request $request) {
+    /**
+     * Handle the events REST request.
+     *
+     * @param WP_REST_Request $request Incoming request object.
+     * @return WP_REST_Response|WP_Error
+     */
+    public function rest_load( WP_REST_Request $request ) {
+        $start     = microtime( true );
         $params    = $request->get_params();
-        $cache_key = vg_events_get_cache_key( 'results', $params );
+
+        $nonce = $request->get_param( '_wpnonce' );
+        if ( ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
+            return new WP_Error( 'invalid_nonce', __( 'Invalid nonce', 'vg-events' ), [ 'status' => 403 ] );
+        }
+
+        $cache_key  = vg_events_get_cache_key( 'results', $params );
         $from_cache = false;
         if ( ! $request->get_param( 'cache_bust' ) ) {
             $cached = wp_cache_get( $cache_key, $this->cache_group );
@@ -125,14 +138,29 @@ class Voelgoed_Events_Calendar {
             wp_cache_set( $cache_key, $response, $this->cache_group, $this->cache_ttl );
         }
 
+        if ( $request->get_param( 'prefetch_next' ) && ! empty( $response['total_pages'] ) ) {
+            $next = $params;
+            $next['paged'] = ( isset( $params['paged'] ) ? (int) $params['paged'] : 1 ) + 1;
+            if ( $next['paged'] <= $response['total_pages'] ) {
+                $response['next_page'] = $this->get_events_response( $next );
+            }
+        }
+
+        $etag_header = md5( serialize( $response ) );
+        if ( $request->get_header( 'If-None-Match' ) === $etag_header ) {
+            return new WP_REST_Response( null, 304, [ 'ETag' => $etag_header ] );
+        }
+
         $resp = rest_ensure_response( apply_filters( 'vg_events_rest_response', $response ) );
         $resp->header( 'Cache-Control', 'max-age=' . $this->cache_ttl . ', public' );
+        $resp->header( 'ETag', $etag_header );
+        $resp->header( 'Last-Modified', gmdate( 'D, d M Y H:i:s', time() ) . ' GMT' );
+        $resp->header( 'X-Exec-Time', round( ( microtime( true ) - $start ) * 1000, 2 ) . 'ms' );
+
         if ( $this->debug ) {
             $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
         }
-        $etag = md5( serialize( $response ) );
-        $resp->header( 'ETag', $etag );
-        $resp->header( 'Last-Modified', gmdate( 'D, d M Y H:i:s', time() ) . ' GMT' );
+
         return $resp;
     }
 

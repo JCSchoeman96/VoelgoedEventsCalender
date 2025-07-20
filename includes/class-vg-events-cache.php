@@ -36,7 +36,39 @@ class VG_Events_Cache {
     public function invalidate( $name ) {
         $key = 'vg_events_cached_' . sanitize_key( $name );
         delete_transient( $key );
+        delete_site_transient( $key );
         wp_cache_delete( $key, $this->group );
+    }
+
+    /**
+     * Delete a specific cache key.
+     *
+     * @param string $key Cache key to delete.
+     */
+    public function delete( $key ) {
+        wp_cache_delete( $key, $this->group );
+        delete_transient( $key );
+        delete_site_transient( $key );
+    }
+
+    /**
+     * Invalidate cache entries by prefix.
+     *
+     * @param string $prefix Prefix for cache keys.
+     */
+    public function invalidate_prefix( $prefix ) {
+        global $wpdb;
+        $like = $wpdb->esc_like( 'vg_events_' . $prefix );
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_' . $like . '%' ) );
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_site_transient_' . $like . '%' ) );
+        wp_cache_flush();
+    }
+
+    /**
+     * Clear all plugin caches.
+     */
+    public function clear_all() {
+        $this->invalidate_prefix( '' );
     }
 }
 

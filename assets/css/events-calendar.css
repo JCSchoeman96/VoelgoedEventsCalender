@@ -131,6 +131,28 @@
   text-align: center;
   margin: 1rem 0;
 }
+
+.vg-skeleton {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.vg-skeleton .line {
+  height: 1rem;
+  background: #eee;
+  border-radius: 4px;
+  animation: vg-pulse 1.5s infinite;
+}
+
+.vg-skeleton .line.short {
+  width: 60%;
+}
+
+@keyframes vg-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
 .vg-loop-item {
     padding: clamp(0.5rem, 1vw, 0.9375rem) 0;
     font-family: 'Lato', sans-serif;

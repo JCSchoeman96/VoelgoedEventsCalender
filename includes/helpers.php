@@ -35,7 +35,8 @@ function vg_events_get_towns() {
     }
     if ( false === $cached ) {
         global $wpdb;
-        $results = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='dorpstad' AND meta_value<>'' ORDER BY meta_value ASC" );
+        $sql     = "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key=%s AND meta_value<>'' ORDER BY meta_value ASC";
+        $results = $wpdb->get_col( $wpdb->prepare( $sql, 'dorpstad' ) );
         $cached  = array_values( array_filter( $results ) );
         set_transient( 'vg_events_cached_towns', $cached, 12 * HOUR_IN_SECONDS );
         wp_cache_set( 'vg_events_cached_towns', $cached, 'vg_events', 12 * HOUR_IN_SECONDS );
@@ -61,7 +62,8 @@ function vg_events_get_months() {
     }
     if ( false === $cached ) {
         global $wpdb;
-        $dates  = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='datum' AND meta_value<>''" );
+        $sql    = "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key=%s AND meta_value<>''";
+        $dates  = $wpdb->get_col( $wpdb->prepare( $sql, 'datum' ) );
         $months = [];
         foreach ( $dates as $d ) {
             $m            = date( 'm', strtotime( $d ) );
@@ -145,8 +147,8 @@ function vg_events_clear_cache_on_save( $post_id, $post ) {
     vg_events_cache()->invalidate( 'towns' );
     vg_events_cache()->invalidate( 'months' );
     global $wpdb;
-    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_vg_events_%'" );
-    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_site_transient_vg_events_%'" );
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_vg_events_%' ) );
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_site_transient_vg_events_%' ) );
 }
 
 add_action( 'save_post', 'vg_events_clear_cache_on_save', 10, 2 );
@@ -156,8 +158,8 @@ add_action( 'save_post', 'vg_events_clear_cache_on_save', 10, 2 );
  */
 function vg_events_invalidate_cache() {
     global $wpdb;
-    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_vg_events_%'" );
-    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_site_transient_vg_events_%'" );
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_transient_vg_events_%' ) );
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", '_site_transient_vg_events_%' ) );
     vg_events_cache()->invalidate( 'towns' );
     vg_events_cache()->invalidate( 'months' );
     wp_cache_flush();

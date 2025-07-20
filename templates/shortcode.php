@@ -42,13 +42,19 @@ $post_types = isset($this) ? $this->post_types : [];
         </div>
     </div>
     <div class="content-and-pagination">
-        <div id="elementor-loop-content" class="content" aria-live="polite">
+        <div id="elementor-loop-content" class="content" aria-live="polite" aria-busy="false">
             <?php
             $no_filters = empty($_GET['search']) && empty($_GET['month']) && empty($_GET['town']) && empty($_GET['start']) && empty($_GET['end']) && empty($_GET['selected_post_type']);
             if ( $no_filters && isset( $this ) ) {
                 echo $this->render_events();
             }
             ?>
+        </div>
+        <div id="vg-events-skeleton" class="vg-skeleton" aria-hidden="true" style="display:none;">
+            <?php for ( $i = 0; $i < 3; $i++ ) : ?>
+                <div class="line"></div>
+                <div class="line short"></div>
+            <?php endfor; ?>
         </div>
         <div id="vg-events-spinner" style="display:none;">Loading...</div>
         <div class="pagination-wrapper">
