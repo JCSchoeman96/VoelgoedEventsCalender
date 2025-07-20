@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '4.1.0';
+    private $version = '1.8.1';
     /** Duration in seconds for cached queries and renders */
     private $cache_ttl = 300;
     /** Cache group for object caching */
