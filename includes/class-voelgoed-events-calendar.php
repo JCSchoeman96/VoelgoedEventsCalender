@@ -5,9 +5,11 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.8.0';
+    private $version = '4.1.0';
     /** Duration in seconds for cached queries and renders */
     private $cache_ttl = 300;
+    /** Cache group for object caching */
+    private $cache_group = 'vg_events';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
@@ -38,6 +40,10 @@ class Voelgoed_Events_Calendar {
         if ( isset( $_GET['vg_debug'] ) && '1' === $_GET['vg_debug'] ) {
             $this->debug = true;
         }
+
+        add_action( 'init', [ $this, 'opcache_preload' ] );
+        add_filter( 'script_loader_tag', [ $this, 'defer_script' ], 10, 2 );
+        add_filter( 'rest_pre_serve_request', [ $this, 'rest_cache_headers' ], 10, 3 );
 
         add_action('wp_enqueue_scripts', [$this, 'maybe_enqueue_assets']);
         add_shortcode('custom_loop_code_sidebar', [$this, 'shortcode']);
@@ -104,13 +110,10 @@ class Voelgoed_Events_Calendar {
 
     public function rest_load(WP_REST_Request $request) {
         $params    = $request->get_params();
-        $cache_key = 'vg_events_results_' . md5( serialize( $params ) );
+        $cache_key = vg_events_get_cache_key( 'results', $params );
         $from_cache = false;
         if ( ! $request->get_param( 'cache_bust' ) ) {
-            $cached = get_transient( $cache_key );
-            if ( false === $cached ) {
-                $cached = wp_cache_get( $cache_key );
-            }
+            $cached = wp_cache_get( $cache_key, $this->cache_group );
             if ( false !== $cached ) {
                 $from_cache = true;
                 $response   = $cached;
@@ -119,8 +122,7 @@ class Voelgoed_Events_Calendar {
 
         if ( empty( $response ) ) {
             $response = $this->get_events_response( $params );
-            set_transient( $cache_key, $response, $this->cache_ttl );
-            wp_cache_set( $cache_key, $response, '', $this->cache_ttl );
+            wp_cache_set( $cache_key, $response, $this->cache_group, $this->cache_ttl );
         }
 
         $resp = rest_ensure_response( apply_filters( 'vg_events_rest_response', $response ) );
@@ -132,6 +134,12 @@ class Voelgoed_Events_Calendar {
     }
 
     private function get_events_response( $params ) {
+        $cache_key = vg_events_get_cache_key( 'response', $params );
+        $cached = wp_cache_get( $cache_key, $this->cache_group );
+        if ( false !== $cached ) {
+            return $cached;
+        }
+
         $post_types         = isset($params['post_types']) ? (array) $params['post_types'] : $this->post_types;
         $selected_post_type = isset($params['selected_post_type']) ? sanitize_text_field($params['selected_post_type']) : '';
         $start_date         = isset($params['start_date']) ? sanitize_text_field($params['start_date']) : '';
@@ -216,13 +224,13 @@ class Voelgoed_Events_Calendar {
         }
 
         $args  = apply_filters( 'vg_events_filter_args', $args, $params );
-        $query_key = 'vg_events_query_' . md5( serialize( $args ) );
-        $sorted_posts = wp_cache_get( $query_key );
+        $query_key = vg_events_get_cache_key( 'query', $args );
+        $sorted_posts = wp_cache_get( $query_key, $this->cache_group );
         if ( false === $sorted_posts ) {
             $query        = new WP_Query( $args );
             $all_posts    = $query->posts;
             $sorted_posts = $this->sort_posts_by_datum( $all_posts );
-            wp_cache_set( $query_key, $sorted_posts, '', $this->cache_ttl );
+            wp_cache_set( $query_key, $sorted_posts, $this->cache_group, $this->cache_ttl );
         }
         $total_posts = count($sorted_posts);
         $total_pages = ceil($total_posts / $posts_per_page);
@@ -328,6 +336,8 @@ class Voelgoed_Events_Calendar {
                 'items'       => $debug_items,
             ];
         }
+
+        wp_cache_set( $cache_key, $response, $this->cache_group, $this->cache_ttl );
         return $response;
     }
 
@@ -426,12 +436,9 @@ class Voelgoed_Events_Calendar {
     }
 
     public function render_events( $params = [] ) {
-        $cache_key = 'vg_events_render_' . md5( serialize( $params ) );
+        $cache_key = vg_events_get_cache_key( 'render', $params );
         if ( ! $this->debug && empty( $params['cache_bust'] ) ) {
-            $cached = get_transient( $cache_key );
-            if ( false === $cached ) {
-                $cached = wp_cache_get( $cache_key );
-            }
+            $cached = wp_cache_get( $cache_key, $this->cache_group );
             if ( false !== $cached ) {
                 return $cached;
             }
@@ -439,8 +446,7 @@ class Voelgoed_Events_Calendar {
 
         $data    = $this->get_events_response( $params );
         $content = $data['content'];
-        set_transient( $cache_key, $content, $this->cache_ttl );
-        wp_cache_set( $cache_key, $content, '', $this->cache_ttl );
+        wp_cache_set( $cache_key, $content, $this->cache_group, $this->cache_ttl );
         return $content;
     }
 
@@ -450,6 +456,44 @@ class Voelgoed_Events_Calendar {
             echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr" as="script">\n';
             echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" as="style">\n';
         }
+    }
+
+    /**
+     * Preload important plugin files into OPcache.
+     */
+    public function opcache_preload() {
+        if ( function_exists( 'opcache_compile_file' ) ) {
+            $files = [
+                __FILE__,
+                plugin_dir_path( __FILE__ ) . 'helpers.php',
+                plugin_dir_path( __FILE__ ) . '../voelgoed-events-calendar.php',
+            ];
+            foreach ( $files as $file ) {
+                if ( is_file( $file ) && ! opcache_is_script_cached( $file ) ) {
+                    @opcache_compile_file( $file );
+                }
+            }
+        }
+    }
+
+    /**
+     * Defer loading of the main script.
+     */
+    public function defer_script( $tag, $handle ) {
+        if ( 'vg-events-calendar' === $handle ) {
+            return str_replace( ' src', ' defer src', $tag );
+        }
+        return $tag;
+    }
+
+    /**
+     * Add cache control headers to REST responses.
+     */
+    public function rest_cache_headers( $served, $result, $request ) {
+        if ( ! headers_sent() && false !== strpos( $request->get_route(), '/vg-events/v1/events' ) ) {
+            header( 'Cache-Control: public, max-age=' . $this->cache_ttl );
+        }
+        return $served;
     }
 
     public function rest_permission_check() {

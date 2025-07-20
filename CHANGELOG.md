@@ -65,3 +65,11 @@
 - Included organizer, performer and offers in JSON-LD data.
 - REST responses now expose cache hit status when debug mode is enabled.
 - Bumped plugin version to 1.8.0.
+
+## 4.1.0
+- OPcache preloading for core plugin files.
+- Switched caching to persistent Redis/object cache with `vg_events` group.
+- Added cron job to prewarm cached event loops for six months ahead.
+- Implemented fine-grained cache invalidation hooks.
+- JSON-LD and HTML now pre-generated and served from cache.
+- Deferred script loading and REST cache-control headers.
