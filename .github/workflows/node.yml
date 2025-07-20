@@ -1,13 +1,9 @@
-name: CI
+name: PHP Lint
 on: [push]
 jobs:
-  build:
+  phplint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-      - run: npm install
-      - run: npm run build
-      - run: npm test
+      - name: PHP Lint
+        run: find . -name '*.php' -print0 | xargs -0 -n 1 php -l

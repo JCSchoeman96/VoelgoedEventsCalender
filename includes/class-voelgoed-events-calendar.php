@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '5.0.0';
+    private $version = '5.1.0';
     /** Duration in seconds for cached queries and renders */
     private $cache_ttl = 300;
     /** Cache group for object caching */
@@ -76,13 +76,17 @@ class Voelgoed_Events_Calendar {
 
     public function enqueue_assets() {
         $enable_datepicker = get_option( $this->option_datepicker, 1 );
-        $css = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? 'events-calendar.css' : 'events-calendar.min.css';
-        wp_enqueue_style( 'vg-events-calendar', plugins_url( '../assets/css/' . $css, __FILE__ ), [], $this->version );
+        wp_enqueue_style(
+            'vg-events-calendar',
+            plugins_url( '../assets/css/events-calendar.css', __FILE__ ),
+            [],
+            '1.9.1'
+        );
         wp_register_script(
             'vg-events-calendar',
             plugins_url( '../assets/js/events-calendar.js', __FILE__ ),
             [],
-            $this->version,
+            '1.9.1',
             true
         );
         $data = [

@@ -109,3 +109,4 @@
 - Debug headers renamed to `X-Cache-Hit` and debug overlay enhanced.
 - Split CSS into modules with dark mode support.
 - Initial Jest tests and GitHub Actions workflow.
+\n## 5.1.0\n- Removed Rollup build and Node dependencies.\n- Merged JavaScript modules into single events-calendar.js.\n- Simplified CI to only run PHP linting.\n
