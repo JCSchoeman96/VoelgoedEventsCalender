@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Voelgoed Events Calendar
  * Description: Display events with filters using Elementor.
- * Version: 1.8.1
+ * Version: 1.8.2
  * Author: Example
  */
 
@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/helpers.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-vg-events-cache.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-voelgoed-events-calendar.php';
 
 register_activation_hook( __FILE__, function() {
