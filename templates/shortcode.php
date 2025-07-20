@@ -22,7 +22,7 @@ $post_types = isset($this) ? $this->post_types : [];
                 );
                 foreach ($post_types as $type) {
                     $display_name = isset($custom_post_type_names[$type]) ? $custom_post_type_names[$type] : ucfirst(str_replace('-', ' ', $type));
-                    echo '<li class="post-type-filter ' . esc_attr($type) . '" tabindex="0" role="option" data-post-type="' . esc_attr($type) . '">' . esc_html($display_name) . '</li>';
+                    echo '<li class="post-type-filter ' . esc_attr($type) . '" tabindex="0" role="option" aria-pressed="false" data-post-type="' . esc_attr($type) . '">' . esc_html($display_name) . '</li>';
                 }
                 ?>
             </ul>
@@ -52,18 +52,24 @@ $post_types = isset($this) ? $this->post_types : [];
         </div>
         <div id="vg-events-skeleton" class="vg-skeleton" aria-hidden="true" style="display:none;">
             <?php for ( $i = 0; $i < 3; $i++ ) : ?>
-                <div class="line"></div>
-                <div class="line short"></div>
+                <div class="vg-skeleton-item">
+                    <div class="vg-skeleton-thumb"></div>
+                    <div class="vg-skeleton-lines">
+                        <div class="line"></div>
+                        <div class="line short"></div>
+                    </div>
+                </div>
             <?php endfor; ?>
         </div>
         <div id="vg-events-spinner" style="display:none;">Loading...</div>
         <div class="pagination-wrapper">
             <div id="pagination-controls" class="pagination-controls">
-                <button id="prev-page" disabled>Vorige</button>
+                <button id="prev-page" disabled aria-label="Previous page">Vorige</button>
                 <span id="page-info"></span>
-                <button id="next-page">Volgende</button>
+                <button id="next-page" aria-label="Next page">Volgende</button>
             </div>
         </div>
         <div id="vg-events-debug" class="vg-debug-panel"></div>
+        <span id="vg-aria-announcer" aria-live="assertive" class="screen-reader-text"></span>
     </div>
 </div>

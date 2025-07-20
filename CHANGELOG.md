@@ -82,6 +82,18 @@
 - Updated code comments to PHPDoc and ensured PHPCS compliance.
 - Bumped plugin version to 1.9.0.
 
+## 1.9.1
+- Inject prefetch links for next page results and smarter skeleton loader.
+- Added aria improvements including live announcer and pagination labels.
+- REST debug mode now exposes query counts and cache status via `?vg_debug=1`.
+- Custom JS events dispatched before and after fetching.
+- Bumped plugin version to 1.9.1.
+
+## 2.0.0
+- Split JavaScript into ES modules with Rollup build configuration.
+- Added `vg-events stats` WP-CLI command for cache statistics.
+- Introduced developer hooks `vg_events_before_render` and `vg_events_after_render`.
+
 ## 4.1.0
 - OPcache preloading for core plugin files.
 - Switched caching to persistent Redis/object cache with `vg_events` group.

@@ -3,6 +3,7 @@ class VGEventsCalendar {
     this.config = config;
     this.currentPage = 1;
     this.totalPages = 1;
+    this.prefetchLink = null;
     this.cacheEls();
     this.init();
   }
@@ -14,6 +15,7 @@ class VGEventsCalendar {
     this.monthFilter = document.getElementById('month-filter');
     this.townFilter = document.getElementById('town-filter');
     this.spinner = document.getElementById('vg-events-spinner');
+    this.announcer = document.getElementById('vg-aria-announcer');
   }
 
   init() {
@@ -81,9 +83,14 @@ class VGEventsCalendar {
     if (params.get('end')) this.endDate.value = params.get('end');
 
     document.querySelectorAll('#post-type-filters .post-type-filter').forEach(el => {
+      el.setAttribute('aria-pressed', 'false');
       const activate = () => {
-        document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => {
+          i.classList.remove('active');
+          i.setAttribute('aria-pressed', 'false');
+        });
         el.classList.add('active');
+        el.setAttribute('aria-pressed', 'true');
         this.currentPage = 1;
         this.triggerLoad();
       };
@@ -126,7 +133,10 @@ class VGEventsCalendar {
       this.monthFilter.value = '';
       this.startDate.value = '';
       this.endDate.value = '';
-      document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('#post-type-filters .post-type-filter').forEach(i => {
+        i.classList.remove('active');
+        i.setAttribute('aria-pressed', 'false');
+      });
       this.currentPage = 1;
       this.loadResults();
       const msg = document.getElementById('filter-reset-msg');
@@ -165,9 +175,11 @@ class VGEventsCalendar {
         town: town,
         template_id: this.config.template_id,
         paged: this.currentPage,
-        _wpnonce: this.config.nonce
+        _wpnonce: this.config.nonce,
+        prefetch_next: 1
       });
       const url = this.config.rest_url + '?' + params.toString();
+      window.dispatchEvent(new CustomEvent('vg_events_before_fetch', { detail: { params: params.toString() } }));
       const startTime = performance.now();
       if (this.config.debug) {
         console.log('[VG Events Plugin] Request URL:', url);
@@ -184,9 +196,19 @@ class VGEventsCalendar {
       if (data.next_page) {
         this.nextPageCache = data.next_page;
       }
+      window.dispatchEvent(new CustomEvent('vg_events_after_fetch', { detail: { params: params.toString(), response: data } }));
       this.totalPages = data.total_pages || 1;
       this.currentPage = data.current_page || 1;
       this.updatePagination();
+      this.updatePrefetch(params);
+      if (this.announcer) {
+        const count = Array.isArray(data.schema) ? data.schema.length : 0;
+        let monthLabel = this.monthFilter.value;
+        if (this.monthFilter.options && this.monthFilter.selectedIndex > 0) {
+          monthLabel = this.monthFilter.options[this.monthFilter.selectedIndex].textContent;
+        }
+        this.announcer.textContent = `${count} events loaded${monthLabel ? ' for ' + monthLabel : ''}`;
+      }
       if (this.config.debug && data.debug) {
         console.log('[VG Events Plugin] Debug info:', data.debug);
         const dbg = document.getElementById('vg-events-debug');
@@ -212,6 +234,25 @@ class VGEventsCalendar {
     document.getElementById('page-info').textContent = `${this.currentPage} van ${this.totalPages}`;
     document.getElementById('prev-page').disabled = this.currentPage === 1;
     document.getElementById('next-page').disabled = this.currentPage === this.totalPages;
+  }
+
+  updatePrefetch(params) {
+    const next = new URLSearchParams(params.toString());
+    const nextPage = this.currentPage + 1;
+    if (nextPage <= this.totalPages) {
+      next.set('paged', nextPage);
+      const href = this.config.rest_url + '?' + next.toString();
+      if (!this.prefetchLink) {
+        this.prefetchLink = document.createElement('link');
+        this.prefetchLink.rel = 'prefetch';
+        this.prefetchLink.id = 'vg-events-prefetch';
+        document.head.appendChild(this.prefetchLink);
+      }
+      this.prefetchLink.href = href;
+    } else if (this.prefetchLink) {
+      this.prefetchLink.remove();
+      this.prefetchLink = null;
+    }
   }
 
   triggerLoad() {
