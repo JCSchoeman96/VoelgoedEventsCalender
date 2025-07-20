@@ -40,3 +40,9 @@
 - Added vg_events_debug option and frontend debug output per loop item.
 - Console logging now shows REST params and template render issues.
 - Injects fallback styles and markup when Elementor templates fail.
+
+## 1.6.0
+- Replaced Elementor template rendering with custom `vg-events-loop.php`.
+- Added fallback styles matching Elementor design.
+- Debug mode now logs REST requests/responses and shows raw event meta.
+- Removed Elementor dependency for improved performance.

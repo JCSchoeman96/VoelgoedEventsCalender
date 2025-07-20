@@ -153,17 +153,21 @@ class VGEventsCalendar {
         paged: this.currentPage,
         _wpnonce: this.config.nonce
       });
-      const response = await fetch(this.config.rest_url + '?' + params.toString());
+      const url = this.config.rest_url + '?' + params.toString();
+      if (this.config.debug) {
+        console.log('[VG Events Plugin] Request URL:', url);
+      }
+      const response = await fetch(url);
       const data = await response.json();
+      if (this.config.debug) {
+        console.log('[VG Events Plugin] Response:', data);
+      }
       container.innerHTML = data.content || '<p>No posts found.</p>';
       this.totalPages = data.total_pages || 1;
       this.currentPage = data.current_page || 1;
       this.updatePagination();
       if (this.config.debug && data.debug) {
         console.log('[VG Events Plugin] Debug info:', data.debug);
-        if (Array.isArray(data.debug.template_errors) && data.debug.template_errors.length) {
-          console.warn('[VG Events Plugin] Template rendering issues for posts:', data.debug.template_errors);
-        }
         const dbg = document.getElementById('vg-events-debug');
         if (dbg) {
           dbg.style.display = 'block';
