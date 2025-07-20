@@ -154,13 +154,16 @@ class VGEventsCalendar {
         _wpnonce: this.config.nonce
       });
       const url = this.config.rest_url + '?' + params.toString();
+      const startTime = performance.now();
       if (this.config.debug) {
         console.log('[VG Events Plugin] Request URL:', url);
       }
       const response = await fetch(url);
       const data = await response.json();
+      const endTime = performance.now();
       if (this.config.debug) {
         console.log('[VG Events Plugin] Response:', data);
+        console.log(`[VG Events Plugin] Request time: ${Math.round(endTime - startTime)}ms`);
       }
       container.innerHTML = data.content || '<p>No posts found.</p>';
       this.totalPages = data.total_pages || 1;
@@ -170,12 +173,12 @@ class VGEventsCalendar {
         console.log('[VG Events Plugin] Debug info:', data.debug);
         const dbg = document.getElementById('vg-events-debug');
         if (dbg) {
-          dbg.style.display = 'block';
-          dbg.textContent = JSON.stringify(data.debug, null, 2);
+          dbg.classList.add('active');
+          dbg.textContent = JSON.stringify({ request: params.toString(), response: data.debug, timing: Math.round(endTime - startTime) + 'ms' }, null, 2);
         }
       } else {
         const dbg = document.getElementById('vg-events-debug');
-        if (dbg) dbg.style.display = 'none';
+        if (dbg) dbg.classList.remove('active');
       }
     } catch (err) {
       console.error(err);
