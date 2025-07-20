@@ -131,3 +131,72 @@
   text-align: center;
   margin: 1rem 0;
 }
+.vg-loop-item {
+    padding: 15px 0;
+    font-family: 'Lato', sans-serif;
+}
+.vg-grid {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    gap: 15px;
+    align-items: center;
+}
+.vg-datekal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #EBEBEB;
+    width: 70px;
+    height: 70px;
+    border-radius: 4px;
+    text-align: center;
+}
+.vg-datekal .vg-day {
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+}
+.vg-datekal .vg-month {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #555;
+}
+.vg-post-type {
+    color: #FF3800;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 5px;
+    display: inline-block;
+}
+.vg-event-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 5px 0;
+}
+.vg-event-meta {
+    font-size: 14px;
+    color: #666;
+}
+.vg-event-meta i {
+    margin-right: 5px;
+    color: #FF3800;
+}
+.vg-btn {
+    display: inline-block;
+    background: #FF3800;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 3px;
+    font-weight: bold;
+    text-decoration: none;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.12);
+}
+.vg-btn:hover {
+    background: #e23000;
+}
+.vg-divider {
+    border-top: 1px solid #ddd;
+    margin-top: 15px;
+}
