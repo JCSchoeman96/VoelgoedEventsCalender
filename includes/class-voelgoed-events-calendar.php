@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.6.0';
+    private $version = '1.6.1';
     private $option_template = 'vg_events_template_id';
     private $option_datepicker = 'vg_events_datepicker';
     private $option_post_types = 'vg_events_post_types';
@@ -33,6 +33,9 @@ class Voelgoed_Events_Calendar {
     private function __construct() {
         $this->post_types = get_option( $this->option_post_types, $this->default_post_types );
         $this->debug      = (bool) get_option( $this->option_debug, 0 );
+        if ( isset( $_GET['vg_debug'] ) && '1' === $_GET['vg_debug'] ) {
+            $this->debug = true;
+        }
 
         add_action('wp_enqueue_scripts', [$this, 'maybe_enqueue_assets']);
         add_shortcode('custom_loop_code_sidebar', [$this, 'shortcode']);
@@ -65,7 +68,8 @@ class Voelgoed_Events_Calendar {
 
     public function enqueue_assets() {
         $enable_datepicker = get_option( $this->option_datepicker, 1 );
-        wp_enqueue_style( 'vg-events-calendar', plugins_url( '../assets/css/events-calendar.css', __FILE__ ), [], $this->version );
+        $css = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? 'events-calendar.css' : 'events-calendar.min.css';
+        wp_enqueue_style( 'vg-events-calendar', plugins_url( '../assets/css/' . $css, __FILE__ ), [], $this->version );
         wp_register_script(
             'vg-events-calendar',
             plugins_url( '../assets/js/events-calendar.js', __FILE__ ),
@@ -350,8 +354,22 @@ class Voelgoed_Events_Calendar {
     }
 
     public function render_events( $params = [] ) {
-        $data = $this->get_events_response( $params );
-        return $data['content'];
+        $cache_key = 'vg_events_render_' . md5( serialize( $params ) );
+        if ( ! $this->debug && empty( $params['cache_bust'] ) ) {
+            $cached = get_transient( $cache_key );
+            if ( false === $cached ) {
+                $cached = wp_cache_get( $cache_key );
+            }
+            if ( false !== $cached ) {
+                return $cached;
+            }
+        }
+
+        $data    = $this->get_events_response( $params );
+        $content = $data['content'];
+        set_transient( $cache_key, $content, 300 );
+        wp_cache_set( $cache_key, $content, '', 300 );
+        return $content;
     }
 
 

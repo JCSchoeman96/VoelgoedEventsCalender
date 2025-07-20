@@ -46,3 +46,10 @@
 - Added fallback styles matching Elementor design.
 - Debug mode now logs REST requests/responses and shows raw event meta.
 - Removed Elementor dependency for improved performance.
+
+## 1.6.1
+- Inline critical loop CSS and add lazy-loaded thumbnails.
+- Added transient caching for rendered loops and debug panel UI.
+- Support `?vg_debug=1` to enable debug regardless of option.
+- Output JSON-LD event data and improved accessibility markup.
+- Enqueue new minified CSS file and responsive grid tweaks.
