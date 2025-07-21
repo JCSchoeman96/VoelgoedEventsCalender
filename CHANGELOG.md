@@ -109,4 +109,15 @@
 - Debug headers renamed to `X-Cache-Hit` and debug overlay enhanced.
 - Split CSS into modules with dark mode support.
 - Initial Jest tests and GitHub Actions workflow.
-\n## 5.1.0\n- Removed Rollup build and Node dependencies.\n- Merged JavaScript modules into single events-calendar.js.\n- Simplified CI to only run PHP linting.\n
+## 5.1.0
+- Removed Rollup build and Node dependencies.
+- Merged JavaScript modules into single events-calendar.js.
+- Simplified CI to only run PHP linting.
+
+## 1.10.0
+- Improved skeleton loader with adaptive placeholders and fade-in transitions.
+- Added Intersection Observer lazy loading and prefetch of next page.
+- Enhanced REST caching with transients and debug headers.
+- Optimized queries using `fields => 'ids'` and new cache invalidation hooks.
+- Accessibility updates for keyboard navigation and ARIA live messages.
+- Added preload hints for critical CSS and fonts.

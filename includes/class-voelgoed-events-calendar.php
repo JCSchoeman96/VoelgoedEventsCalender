@@ -5,9 +5,9 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '5.1.0';
+    private $version = '1.10.0';
     /** Duration in seconds for cached queries and renders */
-    private $cache_ttl = 300;
+    private $cache_ttl = 45;
     /** Cache group for object caching */
     private $cache_group = 'vg_events';
     private $option_template = 'vg_events_template_id';
@@ -135,6 +135,9 @@ class Voelgoed_Events_Calendar {
         $from_cache = false;
         if ( ! $request->get_param( 'cache_bust' ) ) {
             $cached = wp_cache_get( $cache_key, $this->cache_group );
+            if ( false === $cached ) {
+                $cached = get_transient( $cache_key );
+            }
             if ( false !== $cached ) {
                 $from_cache = true;
                 $response   = $cached;
@@ -144,6 +147,7 @@ class Voelgoed_Events_Calendar {
         if ( empty( $response ) ) {
             $response = $this->get_events_response( $params );
             wp_cache_set( $cache_key, $response, $this->cache_group, $this->cache_ttl );
+            set_transient( $cache_key, $response, $this->cache_ttl );
         }
 
         if ( $request->get_param( 'prefetch_next' ) && ! empty( $response['total_pages'] ) ) {
@@ -168,7 +172,7 @@ class Voelgoed_Events_Calendar {
 
         if ( $debug_mode ) {
             $db_queries = $wpdb->num_queries - $query_start;
-            $resp->header( 'X-Cache-Hit', $from_cache ? 'HIT' : 'MISS' );
+            $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
             $resp->header( 'X-DB-Queries', $db_queries );
             $response['debug'] = [
                 'cache'        => $from_cache ? 'HIT' : 'MISS',
@@ -276,8 +280,9 @@ class Voelgoed_Events_Calendar {
         $query_key = vg_events_get_cache_key( 'query', $args );
         $sorted_posts = wp_cache_get( $query_key, $this->cache_group );
         if ( false === $sorted_posts ) {
-            $query        = new WP_Query( $args );
-            $all_posts    = $query->posts;
+            $query        = new WP_Query( array_merge( $args, [ 'fields' => 'ids', 'no_found_rows' => true ] ) );
+            $ids          = $query->posts;
+            $all_posts    = array_map( 'get_post', $ids );
             $sorted_posts = $this->sort_posts_by_datum( $all_posts );
             wp_cache_set( $query_key, $sorted_posts, $this->cache_group, $this->cache_ttl );
         }
@@ -496,6 +501,9 @@ class Voelgoed_Events_Calendar {
         $cache_key = vg_events_get_cache_key( 'render', $params );
         if ( ! $this->debug && empty( $params['cache_bust'] ) ) {
             $cached = wp_cache_get( $cache_key, $this->cache_group );
+            if ( false === $cached ) {
+                $cached = get_transient( $cache_key );
+            }
             if ( false !== $cached ) {
                 do_action( 'vg_events_after_render', $params, $cached );
                 return $cached;
@@ -505,12 +513,15 @@ class Voelgoed_Events_Calendar {
         $data    = $this->get_events_response( $params );
         $content = $data['content'];
         wp_cache_set( $cache_key, $content, $this->cache_group, $this->cache_ttl );
+        set_transient( $cache_key, $content, $this->cache_ttl );
         do_action( 'vg_events_after_render', $params, $content );
         return $content;
     }
 
 
     public function preload_flatpickr_assets() {
+        echo '<link rel="preload" href="' . esc_url( plugins_url( '../assets/css/events-calendar.css', __FILE__ ) ) . '" as="style">\n';
+        echo '<link rel="preload" href="https://fonts.gstatic.com/s/lato/v17/S6u_w4BMUTPHh6UVSwiPGQ.woff2" as="font" type="font/woff2" crossorigin>\n';
         if ( get_option( $this->option_datepicker, 1 ) ) {
             echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr" as="script">\n';
             echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" as="style">\n';
