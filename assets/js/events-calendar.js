@@ -126,6 +126,18 @@ var VGCalendar = (function () {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     btn.click();
+                } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const buttons = Array.from(filters.typeButtons);
+                    const idx = buttons.indexOf(btn);
+                    const next = buttons[idx + 1] || buttons[0];
+                    next.focus();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const buttons = Array.from(filters.typeButtons);
+                    const idx = buttons.indexOf(btn);
+                    const prev = buttons[idx - 1] || buttons[buttons.length - 1];
+                    prev.focus();
                 }
             });
         });
@@ -171,6 +183,21 @@ var VGCalendar = (function () {
         link.href = url;
     }
 
+    function observeLoad(cb) {
+        const target = document.getElementById('elementor-loop-content');
+        if (!target || !('IntersectionObserver' in window)) {
+            cb();
+            return;
+        }
+        const io = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) {
+                io.disconnect();
+                cb();
+            }
+        }, { rootMargin: '200px' });
+        io.observe(target);
+    }
+
     class Calendar {
         constructor(cfg) {
             this.currentPage = 1;
@@ -199,16 +226,42 @@ var VGCalendar = (function () {
                     this.load();
                 }
             });
+            (_a = document.getElementById('prev-page')) === null || _a === void 0 ? void 0 : _a.addEventListener('keydown', e => {
+                if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    document.getElementById('next-page')?.focus();
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    (_a).click();
+                }
+            });
             (_b = document.getElementById('next-page')) === null || _b === void 0 ? void 0 : _b.addEventListener('click', () => {
                 if (this.currentPage < this.totalPages) {
                     this.currentPage++;
                     this.load();
                 }
             });
-            this.load();
+            (_b = document.getElementById('next-page')) === null || _b === void 0 ? void 0 : _b.addEventListener('keydown', e => {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    document.getElementById('prev-page')?.focus();
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    (_b).click();
+                }
+            });
+            observeLoad(() => this.load());
         }
         load() {
             return __awaiter(this, void 0, void 0, function* () {
+                const skel = document.getElementById('vg-events-skeleton');
+                const container = document.getElementById('elementor-loop-content');
+                if (skel)
+                    skel.style.display = 'block';
+                if (container) {
+                    container.classList.remove('loaded');
+                    container.setAttribute('aria-busy', 'true');
+                }
                 const active = document.querySelector('#post-type-filters .post-type-filter.active');
                 const params = new URLSearchParams({
                     post_types: this.config.post_types.join(','),
@@ -225,10 +278,13 @@ var VGCalendar = (function () {
                 });
                 const url = `${this.config.rest_url}?${params.toString()}`;
                 const data = yield fetchEvents(url);
-                const container = document.getElementById('elementor-loop-content');
                 if (container) {
                     container.innerHTML = data.content || '';
+                    container.classList.add('loaded');
+                    container.setAttribute('aria-busy', 'false');
                 }
+                if (skel)
+                    skel.style.display = 'none';
                 this.totalPages = data.total_pages || 1;
                 this.currentPage = data.current_page || 1;
                 updatePagination(this.currentPage, this.totalPages);
@@ -236,7 +292,14 @@ var VGCalendar = (function () {
                     const next = `${this.config.rest_url}?paged=${this.currentPage + 1}`;
                     prefetchNext(next);
                 }
-                announce('vg-aria-announcer', `${data.schema ? data.schema.length : 0} events`);
+                const month = document.getElementById('month-filter').value;
+                const town = document.getElementById('town-filter').value;
+                let msg = `${data.total_posts || 0} events`;
+                if (month)
+                    msg += ` for ${month}`;
+                if (town)
+                    msg += ` in ${town}`;
+                announce('vg-aria-announcer', msg);
                 if (this.config.debug && data.debug) {
                     const panel = document.getElementById('vg-events-debug');
                     if (panel) {

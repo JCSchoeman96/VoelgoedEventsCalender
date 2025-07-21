@@ -35,8 +35,38 @@
   animation: vg-pulse 1.5s infinite;
 }
 
+.vg-skeleton .line.title {
+  width: 80%;
+  margin-bottom: 0.25rem;
+}
+
+.vg-skeleton .line.meta {
+  width: 60%;
+  height: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
 .vg-skeleton .line.short {
   width: 60%;
+}
+
+.vg-fade-in {
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+}
+
+.vg-fade-in.loaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vg-skeleton-thumb,
+  .vg-skeleton .line {
+    animation: none;
+  }
+  .vg-fade-in {
+    transition: none;
+  }
 }
 
 @keyframes vg-pulse {

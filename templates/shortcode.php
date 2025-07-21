@@ -42,7 +42,7 @@ $post_types = isset($this) ? $this->post_types : [];
         </div>
     </div>
     <div class="content-and-pagination">
-        <div id="elementor-loop-content" class="content" aria-live="polite" aria-busy="false">
+        <div id="elementor-loop-content" class="content vg-fade-in" aria-live="polite" aria-busy="false">
             <?php
             $no_filters = empty($_GET['search']) && empty($_GET['month']) && empty($_GET['town']) && empty($_GET['start']) && empty($_GET['end']) && empty($_GET['selected_post_type']);
             if ( $no_filters && isset( $this ) ) {
@@ -55,8 +55,9 @@ $post_types = isset($this) ? $this->post_types : [];
                 <div class="vg-skeleton-item">
                     <div class="vg-skeleton-thumb"></div>
                     <div class="vg-skeleton-lines">
-                        <div class="line"></div>
-                        <div class="line short"></div>
+                        <div class="line title"></div>
+                        <div class="line meta"></div>
+                        <div class="line meta short"></div>
                     </div>
                 </div>
             <?php endfor; ?>
@@ -70,6 +71,6 @@ $post_types = isset($this) ? $this->post_types : [];
             </div>
         </div>
         <div id="vg-events-debug" class="vg-debug-panel"></div>
-        <span id="vg-aria-announcer" aria-live="assertive" class="screen-reader-text"></span>
+        <span id="vg-aria-announcer" role="status" aria-live="assertive" class="screen-reader-text"></span>
     </div>
 </div>
