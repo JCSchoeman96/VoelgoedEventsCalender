@@ -5,9 +5,11 @@ if (!defined('ABSPATH')) {
 
 class Voelgoed_Events_Calendar {
     private static $instance = null;
-    private $version = '1.10.0';
+    private $version = '2.1.0';
     /** Duration in seconds for cached queries and renders */
     private $cache_ttl = 45;
+    /** TTL for transient fallback cache */
+    private $transient_ttl = 90;
     /** Cache group for object caching */
     private $cache_group = 'vg_events';
     private $option_template = 'vg_events_template_id';
@@ -147,7 +149,7 @@ class Voelgoed_Events_Calendar {
         if ( empty( $response ) ) {
             $response = $this->get_events_response( $params );
             wp_cache_set( $cache_key, $response, $this->cache_group, $this->cache_ttl );
-            set_transient( $cache_key, $response, $this->cache_ttl );
+            set_transient( $cache_key, $response, $this->transient_ttl );
         }
 
         if ( $request->get_param( 'prefetch_next' ) && ! empty( $response['total_pages'] ) ) {
@@ -160,7 +162,7 @@ class Voelgoed_Events_Calendar {
 
         $etag_header = md5( serialize( $response ) );
         if ( $request->get_header( 'If-None-Match' ) === $etag_header ) {
-            return new WP_REST_Response( null, 304, [ 'ETag' => $etag_header ] );
+            return new WP_REST_Response( null, 304, [ 'ETag' => $etag_header, 'X-VG-Cache' => $from_cache ? 'HIT' : 'MISS' ] );
         }
 
         $exec_time = round( ( microtime( true ) - $start ) * 1000, 2 );
@@ -169,10 +171,10 @@ class Voelgoed_Events_Calendar {
         $resp->header( 'ETag', $etag_header );
         $resp->header( 'Last-Modified', gmdate( 'D, d M Y H:i:s', time() ) . ' GMT' );
         $resp->header( 'X-Exec-Time', $exec_time . 'ms' );
+        $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
 
         if ( $debug_mode ) {
             $db_queries = $wpdb->num_queries - $query_start;
-            $resp->header( 'X-VG-Cache', $from_cache ? 'HIT' : 'MISS' );
             $resp->header( 'X-DB-Queries', $db_queries );
             $response['debug'] = [
                 'cache'        => $from_cache ? 'HIT' : 'MISS',
@@ -280,7 +282,12 @@ class Voelgoed_Events_Calendar {
         $query_key = vg_events_get_cache_key( 'query', $args );
         $sorted_posts = wp_cache_get( $query_key, $this->cache_group );
         if ( false === $sorted_posts ) {
-            $query        = new WP_Query( array_merge( $args, [ 'fields' => 'ids', 'no_found_rows' => true ] ) );
+            $query        = new WP_Query( array_merge( $args, [
+                'fields'                 => 'ids',
+                'no_found_rows'          => true,
+                'update_post_meta_cache' => false,
+                'update_post_term_cache' => false,
+            ] ) );
             $ids          = $query->posts;
             $all_posts    = array_map( 'get_post', $ids );
             $sorted_posts = $this->sort_posts_by_datum( $all_posts );
@@ -513,15 +520,20 @@ class Voelgoed_Events_Calendar {
         $data    = $this->get_events_response( $params );
         $content = $data['content'];
         wp_cache_set( $cache_key, $content, $this->cache_group, $this->cache_ttl );
-        set_transient( $cache_key, $content, $this->cache_ttl );
+        set_transient( $cache_key, $content, $this->transient_ttl );
         do_action( 'vg_events_after_render', $params, $content );
         return $content;
     }
 
 
     public function preload_flatpickr_assets() {
-        echo '<link rel="preload" href="' . esc_url( plugins_url( '../assets/css/events-calendar.css', __FILE__ ) ) . '" as="style">\n';
-        echo '<link rel="preload" href="https://fonts.gstatic.com/s/lato/v17/S6u_w4BMUTPHh6UVSwiPGQ.woff2" as="font" type="font/woff2" crossorigin>\n';
+        echo '<link rel="preload" href="' . esc_url( plugins_url( '../assets/css/events-calendar.min.css', __FILE__ ) ) . '" as="style">\n';
+        echo '<link rel="preload" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" as="style">\n';
+        $skeleton = plugin_dir_path( __FILE__ ) . '../assets/css/modules/skeleton.css';
+        if ( is_file( $skeleton ) ) {
+            $css = file_get_contents( $skeleton );
+            echo '<style id="vg-events-skeleton-inline">' . trim( $css ) . '</style>\n';
+        }
         if ( get_option( $this->option_datepicker, 1 ) ) {
             echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr" as="script">\n';
             echo '<link rel="preload" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" as="style">\n';

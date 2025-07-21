@@ -7,6 +7,13 @@ class VG_Events_Cache {
     /** @var string */
     protected $group = 'vg_events';
 
+    /** @var bool */
+    protected $persistent;
+
+    public function __construct() {
+        $this->persistent = wp_using_ext_object_cache();
+    }
+
     /**
      * Store a value in cache.
      *
@@ -16,6 +23,9 @@ class VG_Events_Cache {
      */
     public function set( $key, $data, $ttl = 0 ) {
         wp_cache_set( $key, $data, $this->group, $ttl );
+        if ( ! $this->persistent ) {
+            set_transient( $key, $data, $ttl );
+        }
     }
 
     /**
@@ -25,7 +35,11 @@ class VG_Events_Cache {
      * @return mixed
      */
     public function get( $key ) {
-        return wp_cache_get( $key, $this->group );
+        $data = wp_cache_get( $key, $this->group );
+        if ( false === $data && ! $this->persistent ) {
+            $data = get_transient( $key );
+        }
+        return $data;
     }
 
     /**

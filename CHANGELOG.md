@@ -121,3 +121,11 @@
 - Optimized queries using `fields => 'ids'` and new cache invalidation hooks.
 - Accessibility updates for keyboard navigation and ARIA live messages.
 - Added preload hints for critical CSS and fonts.
+
+## 2.1.0
+- Hybrid object/transient caching with 90s fallback.
+- Added ETag/304 REST support and X-VG-Cache headers.
+- WP-Cron prewarms first three pages every 30 min.
+- sessionStorage now caches last 3 pages.
+- Inline skeleton CSS and preload fonts/styles.
+- Focus management for keyboard users.

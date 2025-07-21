@@ -169,3 +169,6 @@ function vg_events_invalidate_cache() {
 
 add_action( 'save_post', 'vg_events_invalidate_cache' );
 add_action( 'deleted_post', 'vg_events_invalidate_cache' );
+add_action( 'edited_term', 'vg_events_invalidate_cache' );
+add_action( 'created_term', 'vg_events_invalidate_cache' );
+add_action( 'delete_term', 'vg_events_invalidate_cache' );
