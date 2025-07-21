@@ -73,6 +73,18 @@ var VGCalendar = (function () {
             const payload = { value, exp: Date.now() + ttl };
             try {
                 sessionStorage.setItem(key, JSON.stringify(payload));
+                const indexKey = 'vgEvents_cache_index';
+                const raw = sessionStorage.getItem(indexKey);
+                const list = raw ? JSON.parse(raw) : [];
+                const pos = list.indexOf(key);
+                if (pos !== -1) list.splice(pos, 1);
+                list.unshift(key);
+                while (list.length > 3) {
+                    const old = list.pop();
+                    if (old)
+                        sessionStorage.removeItem(old);
+                }
+                sessionStorage.setItem(indexKey, JSON.stringify(list));
             }
             catch (_a) {
                 /* noop */
@@ -203,7 +215,12 @@ var VGCalendar = (function () {
             this.currentPage = 1;
             this.totalPages = 1;
             this.config = cfg;
-            document.addEventListener('DOMContentLoaded', () => this.init());
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => this.init());
+            }
+            else {
+                document.addEventListener('DOMContentLoaded', () => this.init());
+            }
         }
         init() {
             var _a, _b;
@@ -282,6 +299,11 @@ var VGCalendar = (function () {
                     container.innerHTML = data.content || '';
                     container.classList.add('loaded');
                     container.setAttribute('aria-busy', 'false');
+                    const first = container.querySelector('.vg-event-title');
+                    if (first) {
+                        first.setAttribute('tabindex', '-1');
+                        first.focus();
+                    }
                 }
                 if (skel)
                     skel.style.display = 'none';

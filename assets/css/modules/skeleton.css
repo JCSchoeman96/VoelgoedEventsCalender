@@ -52,7 +52,8 @@
 
 .vg-fade-in {
   opacity: 0;
-  transition: opacity 0.3s ease-in;
+  transition: opacity 0.3s ease-in-out;
+  will-change: opacity;
 }
 
 .vg-fade-in.loaded {
